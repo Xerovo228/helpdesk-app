@@ -3,33 +3,38 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>IT HelpDesk</title>
+    <title>HelpDesk Support</title>
     <script src="https://telegram.org/js/telegram-web-app.js"></script>
     <link rel="stylesheet" href="style.css">
 </head>
 <body>
     <div class="container">
-        <h2>🛠 Создать заявку</h2>
-        <p id="userInfo" class="user-info">Загрузка...</p>
+        <div class="header">
+            <h2>Создать заявку 🛠</h2>
+            <p id="userInfo" class="user-info">Загрузка данных...</p>
+        </div>
 
         <form id="ticketForm">
             <div class="form-group">
                 <label for="room">🚪 Номер кабинета:</label>
-                <input type="text" id="room" placeholder="Например: 305" required>
+                <input type="text" id="room" placeholder="Например: 305 или Актовый зал" required>
             </div>
 
             <div class="form-group">
-                <label for="problem">⚠️ Опишите проблему:</label>
-                <textarea id="problem" rows="3" placeholder="Что случилось? (Например: Не включается проектор)" required></textarea>
+                <label for="problem">⚠️ Описание проблемы:</label>
+                <textarea id="problem" rows="4" placeholder="Опишите, что именно не работает..." required></textarea>
             </div>
 
             <div class="form-group">
-                <label for="photo">📸 Фото поломки (Обязательно):</label>
+                <label class="file-upload-label" for="photo">
+                    <span id="fileName">📸 Прикрепить фото (Обязательно)</span>
+                </label>
                 <input type="file" id="photo" accept="image/*" required>
             </div>
 
             <button type="submit" id="submitBtn">Отправить заявку</button>
         </form>
+        
         <div id="statusMessage"></div>
     </div>
 
