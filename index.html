@@ -3,29 +3,28 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>IT HelpDesk</title>
+    <title>HelpDesk</title>
     <script src="https://telegram.org/js/telegram-web-app.js"></script>
     <link rel="stylesheet" href="style.css">
 </head>
 <body>
     <div class="container">
-        <div id="roleSwitcher" style="display:none; text-align: right; margin-bottom: 10px;">
-            <button onclick="toggleRole()" style="padding: 5px 10px; font-size: 10px; width: auto; background: #888;">Сменить роль (Debug)</button>
+        <div id="roleSwitcher" style="display:none; text-align: right; margin-bottom: 12px;">
+            <button onclick="toggleRole()" class="btn-debug">Сменить роль</button>
         </div>
 
         <div id="studentView">
             <div class="header">
                 <h2>Создать заявку 🛠</h2>
-                <p id="userInfo" class="user-info">Загрузка...</p>
             </div>
             <form id="ticketForm">
                 <div class="form-group">
-                    <label>🚪 Номер кабинета:</label>
+                    <label>🚪 Кабинет</label>
                     <input type="text" id="room" placeholder="Например: 305" required>
                 </div>
                 <div class="form-group">
-                    <label>⚠️ Описание проблемы:</label>
-                    <textarea id="problem" rows="3" placeholder="Что случилось?" required></textarea>
+                    <label>⚠️ Что случилось?</label>
+                    <textarea id="problem" rows="3" placeholder="Опишите проблему..." required></textarea>
                 </div>
                 <div class="form-group">
                     <label class="file-upload-label" for="photo">
@@ -33,17 +32,16 @@
                     </label>
                     <input type="file" id="photo" accept="image/*" required>
                 </div>
-                <button type="submit" id="submitBtn">Отправить заявку</button>
+                <button type="submit" id="submitBtn">Отправить</button>
             </form>
         </div>
 
         <div id="adminView" style="display:none;">
             <div class="header">
-                <h2>Панель Админа 👨‍💻</h2>
-                <p id="adminStatus" class="user-info">Активные заявки</p>
+                <h2>Заявки 👨‍💻</h2>
             </div>
             <div id="ticketsList">
-                <p style="text-align:center;">Загрузка списка...</p>
+                <p style="text-align:center;">Загрузка...</p>
             </div>
         </div>
 
