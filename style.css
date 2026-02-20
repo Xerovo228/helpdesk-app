@@ -1,82 +1,4 @@
-body {
-    font-family: -apple-system, system-ui, sans-serif;
-    background-color: var(--tg-theme-secondary-bg-color, #f4f4f7);
-    color: var(--tg-theme-text-color, #1c1c1e);
-    margin: 0;
-    padding: 15px;
-    display: flex;
-    justify-content: center;
-}
-
-.container {
-    background: var(--tg-theme-bg-color, #ffffff);
-    padding: 24px;
-    border-radius: 28px; /* Очень мягкие углы */
-    box-shadow: 0 10px 30px rgba(0,0,0,0.04);
-    width: 100%;
-    max-width: 400px;
-}
-
-.header {
-    text-align: center;
-    margin-bottom: 24px;
-}
-
-h2 { margin: 0; font-size: 22px; font-weight: 700; }
-
-.form-group { margin-bottom: 18px; }
-
-label { font-size: 14px; font-weight: 600; margin-left: 8px; color: #8e8e93; }
-
-input[type="text"], textarea {
-    width: 100%;
-    padding: 14px 16px;
-    border: 1px solid #efeff4;
-    border-radius: 18px; /* Скругленные поля */
-    box-sizing: border-box;
-    background-color: var(--tg-theme-secondary-bg-color, #f9f9f9);
-    color: var(--tg-theme-text-color, #000);
-    font-size: 16px;
-    margin-top: 6px;
-}
-
-/* Кнопки */
-button {
-    width: 100%;
-    padding: 16px;
-    border: none;
-    border-radius: 20px;
-    font-size: 16px;
-    font-weight: 700;
-    cursor: pointer;
-    transition: 0.2s;
-}
-
-#submitBtn {
-    background-color: #007aff;
-    color: #fff;
-}
-
-.btn-debug {
-    background: #e5e5ea;
-    color: #3a3a3c;
-    width: auto;
-    padding: 8px 16px;
-    font-size: 12px;
-}
-
-/* Карточки админа */
-.ticket-card {
-    background: #f9f9fb;
-    border-radius: 22px;
-    padding: 16px;
-    margin-bottom: 12px;
-    border: 1px solid #efeff4;
-}
-
-.card-actions { display: flex; gap: 10px; margin-top: 12px; }
-
-.btn-done { background-color: #34c759 !important; color: white; flex: 2; }
+/* Кнопка "Фото" - делаем мягко-серой */
 .btn-view { 
     background-color: #f2f2f7 !important; 
     color: #007aff !important; 
@@ -84,19 +6,38 @@ button {
     display: flex; 
     align-items: center; 
     justify-content: center; 
-    border-radius: 18px; 
+    border-radius: 20px; /* Сильное скругление */
     flex: 1; 
     font-size: 14px;
     font-weight: 600;
+    transition: background 0.2s;
 }
 
-.file-upload-label {
-    display: flex;
-    padding: 16px;
-    border: 2px dashed #d1d1d6;
-    border-radius: 20px;
-    justify-content: center;
-    color: #8e8e93;
-    margin-top: 10px;
-    font-weight: 500;
+.btn-view:active { background-color: #e5e5ea !important; }
+
+/* Кнопка "Готово" - мягкий пастельно-зеленый */
+.btn-done { 
+    background-color: #e1f5fe !important; /* Светлый фон */
+    background-color: #d1e7dd !important; /* Мягкая мята */
+    color: #0f5132 !important; /* Темный текст для контраста */
+    border-radius: 20px; /* Капсульная форма */
+    flex: 2; 
+    font-size: 14px;
+    padding: 12px !important;
+    box-shadow: none; /* Убираем тени для плоскости */
+}
+
+.btn-done:active { 
+    background-color: #badbcc !important; 
+    transform: scale(0.98); 
+}
+
+/* Обновим саму карточку, чтобы она была еще мягче */
+.ticket-card {
+    background: #ffffff;
+    border-radius: 24px;
+    padding: 18px;
+    margin-bottom: 14px;
+    border: 1px solid #f2f2f7;
+    box-shadow: 0 4px 15px rgba(0,0,0,0.02);
 }
