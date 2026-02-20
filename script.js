@@ -1,36 +1,43 @@
-// Инициализируем Телеграм
 let tg = window.Telegram.WebApp;
-tg.expand(); // Открываем на весь экран
+tg.expand();
 
-// 🔥 ВСТАВЬ СЮДА СВОЙ URL ОТ GOOGLE APPS SCRIPT
+// 🔥 ТВОЯ ССЫЛКА НА ГУГЛ СКРИПТ (СКОПИРУЙ ЕЕ ИЗ СТАРОГО SCRIPT.JS)
 const GOOGLE_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbztD215U09edQ837xmYPzcCWxQTz7e7K2FIgs97e7vNbNDiTowqbzYrs9soVOWB5ApIlw/exec";
 
-// Выводим имя пользователя
 const userInfoEl = document.getElementById('userInfo');
 let user = tg.initDataUnsafe?.user;
 
 if (user) {
-    userInfoEl.innerText = `Пользователь: ${user.first_name} ${user.last_name || ''}`;
+    userInfoEl.innerText = `👤 ${user.first_name} ${user.last_name || ''}`;
 } else {
-    userInfoEl.innerText = "Режим отладки (вне Telegram)";
+    userInfoEl.innerText = "🌐 Режим браузера";
 }
 
-// Обработка отправки формы
+// Показываем имя выбранного файла
+const fileInput = document.getElementById('photo');
+const fileNameDisplay = document.getElementById('fileName');
+
+fileInput.addEventListener('change', function() {
+    if (this.files && this.files.length > 0) {
+        fileNameDisplay.innerText = "✅ Выбрано: " + this.files[0].name;
+        document.querySelector('.file-upload-label').style.backgroundColor = "rgba(46, 204, 113, 0.1)";
+        document.querySelector('.file-upload-label').style.borderColor = "#2ecc71";
+        document.querySelector('.file-upload-label').style.color = "#27ae60";
+    }
+});
+
 document.getElementById('ticketForm').addEventListener('submit', async (e) => {
-    e.preventDefault(); // Останавливаем стандартную перезагрузку страницы
+    e.preventDefault();
     
     const btn = document.getElementById('submitBtn');
     const statusMsg = document.getElementById('statusMessage');
-    
     const room = document.getElementById('room').value;
     const problem = document.getElementById('problem').value;
-    const fileInput = document.getElementById('photo');
 
     btn.disabled = true;
-    btn.innerText = "Отправка...";
+    btn.innerText = "⏳ Отправка данных...";
     statusMsg.innerText = "";
 
-    // Функция для отправки данных (вызывается после обработки фото)
     async function sendData(photoBase64) {
         const payload = {
             action: "create_ticket",
@@ -44,7 +51,6 @@ document.getElementById('ticketForm').addEventListener('submit', async (e) => {
         try {
             const response = await fetch(GOOGLE_SCRIPT_URL, {
                 method: 'POST',
-                // Google Apps Script требует plain/text для CORS
                 headers: { 'Content-Type': 'text/plain;charset=utf-8' }, 
                 body: JSON.stringify(payload)
             });
@@ -52,32 +58,29 @@ document.getElementById('ticketForm').addEventListener('submit', async (e) => {
             const result = await response.json();
             
             if (result.status === 'success') {
-                statusMsg.style.color = "green";
-                statusMsg.innerText = "✅ Заявка успешно отправлена!";
-                // Показываем кнопку закрытия от Телеграма
-                tg.MainButton.text = "Закрыть";
+                statusMsg.style.color = "#2ecc71";
+                statusMsg.innerText = "🎉 Заявка успешно отправлена!";
+                btn.innerText = "Отправлено";
+                tg.MainButton.text = "Закрыть окно";
                 tg.MainButton.show();
                 tg.MainButton.onClick(() => tg.close());
             } else {
-                throw new Error(result.error || "Неизвестная ошибка сервера");
+                throw new Error(result.error);
             }
         } catch (error) {
-            statusMsg.style.color = "red";
+            statusMsg.style.color = "#e74c3c";
             statusMsg.innerText = "❌ Ошибка: " + error.message;
             btn.disabled = false;
-            btn.innerText = "Отправить заявку";
+            btn.innerText = "Попробовать снова";
         }
     }
 
-    // Читаем файл фото
     if (fileInput.files.length > 0) {
-        const file = fileInput.files[0];
         const reader = new FileReader();
         reader.onload = function() {
-            // Отрезаем начало "data:image/jpeg;base64," чтобы передать чистый код
             const base64Data = reader.result.split(',')[1]; 
             sendData(base64Data);
         };
-        reader.readAsDataURL(file);
+        reader.readAsDataURL(fileInput.files[0]);
     }
 });
