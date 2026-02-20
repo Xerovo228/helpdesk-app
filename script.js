@@ -1,12 +1,13 @@
 let tg = window.Telegram.WebApp;
 tg.expand();
 
+// 🔴 ВАЖНО: Вставь сюда свою ссылку на Google Apps Script (которую брал в "Управлении развертываниями")
 const GOOGLE_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbztD215U09edQ837xmYPzcCWxQTz7e7K2FIgs97e7vNbNDiTowqbzYrs9soVOWB5ApIlw/exec"; 
 
 let currentRole = 'student';
 let user = tg.initDataUnsafe?.user;
 
-// 1. ПРОВЕРКА РОЛИ ПРИ ЗАПУСКЕ
+// --- 1. ПРОВЕРКА РОЛИ ПРИ ЗАПУСКЕ ---
 async function checkRole() {
     try {
         const response = await fetch(GOOGLE_SCRIPT_URL, {
@@ -23,13 +24,16 @@ async function checkRole() {
             showView('student');
         }
     } catch (e) {
-        showView('student'); // По умолчанию студент
+        showView('student'); 
     }
 }
 
-// 2. ПЕРЕКЛЮЧЕНИЕ ЭКРАНОВ
+// --- 2. ПЕРЕКЛЮЧЕНИЕ ЭКРАНОВ ---
 function showView(view) {
     currentRole = view;
+    const statusMsg = document.getElementById('statusMessage');
+    statusMsg.innerText = ""; // Очищаем старые сообщения
+
     if (view === 'admin') {
         document.getElementById('studentView').style.display = 'none';
         document.getElementById('adminView').style.display = 'block';
@@ -44,10 +48,10 @@ function toggleRole() {
     showView(currentRole === 'admin' ? 'student' : 'admin');
 }
 
-// 3. ЗАГРУЗКА ЗАЯВОК ДЛЯ АДМИНА
+// --- 3. ЛОГИКА АДМИНА: ЗАГРУЗКА И ЗАКРЫТИЕ ---
 async function loadTickets() {
     const list = document.getElementById('ticketsList');
-    list.innerHTML = "<p style='text-align:center;'>Обновление списка...</p>";
+    list.innerHTML = "<p style='text-align:center;'>🔄 Обновление списка...</p>";
     
     try {
         const response = await fetch(GOOGLE_SCRIPT_URL, {
@@ -58,8 +62,8 @@ async function loadTickets() {
         const res = await response.json();
         
         list.innerHTML = "";
-        if (res.tickets.length === 0) {
-            list.innerHTML = "<p style='text-align:center;'>🎉 Активных заявок нет!</p>";
+        if (!res.tickets || res.tickets.length === 0) {
+            list.innerHTML = "<p style='text-align:center; padding: 20px;'>🎉 Активных заявок нет!</p>";
             return;
         }
 
@@ -68,8 +72,8 @@ async function loadTickets() {
             card.className = 'ticket-card';
             card.innerHTML = `
                 <div><b>ID:</b> ${t.id} | 🚪 <b>Каб:</b> ${t.room}</div>
-                <div style="margin: 5px 0;">${t.problem}</div>
-                <div style="font-size:11px; color:gray;">От: ${t.user}</div>
+                <div style="margin: 8px 0; font-size: 15px;">${t.problem}</div>
+                <div style="font-size:11px; color:gray; margin-bottom: 10px;">От: ${t.user}</div>
                 <div class="card-actions">
                     <a href="${t.photoUrl}" target="_blank" class="btn-view">👀 Фото</a>
                     <button class="btn-done" onclick="closeTicket(${t.row}, this)">✅ Готово</button>
@@ -78,28 +82,81 @@ async function loadTickets() {
             list.appendChild(card);
         });
     } catch (e) {
-        list.innerHTML = "<p style='color:red;'>Ошибка загрузки</p>";
+        list.innerHTML = "<p style='color:red; text-align:center;'>❌ Ошибка загрузки данных</p>";
     }
 }
 
-// 4. ЗАКРЫТИЕ ЗАЯВКИ
 async function closeTicket(row, btn) {
+    if (!confirm("Заявка выполнена?")) return;
     btn.disabled = true;
-    btn.innerText = "...";
+    btn.innerText = "⏳";
     try {
         await fetch(GOOGLE_SCRIPT_URL, {
             method: 'POST',
             headers: { 'Content-Type': 'text/plain;charset=utf-8' },
             body: JSON.stringify({ action: "update_status", row: row, newStatus: "🟢 Готово" })
         });
-        loadTickets(); // Обновляем список
+        loadTickets(); 
     } catch (e) {
-        alert("Ошибка при обновлении статуса");
+        alert("Ошибка сети");
         btn.disabled = false;
     }
 }
 
-// Остальная логика (отправка формы студентом) остается как была...
-// [Скопируй сюда обработчик 'submit' и выбор файла из предыдущего script.js]
+// --- 4. ЛОГИКА СТУДЕНТА: ОТПРАВКА ФОРМЫ ---
+const fileInput = document.getElementById('photo');
+const fileNameDisplay = document.getElementById('fileName');
 
+fileInput.addEventListener('change', function() {
+    if (this.files && this.files.length > 0) {
+        fileNameDisplay.innerText = "✅ Фото: " + this.files[0].name;
+    }
+});
+
+document.getElementById('ticketForm').addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const btn = document.getElementById('submitBtn');
+    const statusMsg = document.getElementById('statusMessage');
+    const room = document.getElementById('room').value;
+    const problem = document.getElementById('problem').value;
+
+    btn.disabled = true;
+    btn.innerText = "🚀 Отправка...";
+
+    const reader = new FileReader();
+    reader.onload = async function() {
+        const base64Data = reader.result.split(',')[1];
+        const payload = {
+            action: "create_ticket",
+            user: user ? `${user.first_name} ${user.last_name || ''}` : "Аноним",
+            telegramId: user ? user.id : 0,
+            room: room,
+            problem: problem,
+            photo: base64Data
+        };
+
+        try {
+            const response = await fetch(GOOGLE_SCRIPT_URL, {
+                method: 'POST',
+                headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+                body: JSON.stringify(payload)
+            });
+            const result = await response.json();
+            if (result.status === 'success') {
+                statusMsg.style.color = "#2ecc71";
+                statusMsg.innerText = "✅ Заявка отправлена!";
+                document.getElementById('ticketForm').reset();
+                fileNameDisplay.innerText = "📸 Прикрепить фото";
+                setTimeout(() => { tg.close(); }, 2000);
+            }
+        } catch (error) {
+            statusMsg.style.color = "#e74c3c";
+            statusMsg.innerText = "❌ Ошибка!";
+            btn.disabled = false;
+        }
+    };
+    reader.readAsDataURL(fileInput.files[0]);
+});
+
+// Запуск проверки
 checkRole();
