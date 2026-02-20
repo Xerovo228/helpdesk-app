@@ -1,7 +1,7 @@
 let tg = window.Telegram.WebApp;
 tg.expand();
 
-// 🔴 ВАЖНО: Вставь сюда свою ссылку на Google Apps Script (которую брал в "Управлении развертываниями")
+// Твоя ссылка на Google Apps Script
 const GOOGLE_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbztD215U09edQ837xmYPzcCWxQTz7e7K2FIgs97e7vNbNDiTowqbzYrs9soVOWB5ApIlw/exec"; 
 
 let currentRole = 'student';
@@ -24,6 +24,7 @@ async function checkRole() {
             showView('student');
         }
     } catch (e) {
+        console.error("Ошибка проверки роли:", e);
         showView('student'); 
     }
 }
@@ -32,7 +33,7 @@ async function checkRole() {
 function showView(view) {
     currentRole = view;
     const statusMsg = document.getElementById('statusMessage');
-    statusMsg.innerText = ""; // Очищаем старые сообщения
+    if (statusMsg) statusMsg.innerText = ""; 
 
     if (view === 'admin') {
         document.getElementById('studentView').style.display = 'none';
@@ -44,7 +45,8 @@ function showView(view) {
     }
 }
 
-function toggleRole() {
+// Глобальная функция для кнопки переключения
+window.toggleRole = function() {
     showView(currentRole === 'admin' ? 'student' : 'admin');
 }
 
@@ -86,7 +88,7 @@ async function loadTickets() {
     }
 }
 
-async function closeTicket(row, btn) {
+window.closeTicket = async function(row, btn) {
     if (!confirm("Заявка выполнена?")) return;
     btn.disabled = true;
     btn.innerText = "⏳";
@@ -107,56 +109,69 @@ async function closeTicket(row, btn) {
 const fileInput = document.getElementById('photo');
 const fileNameDisplay = document.getElementById('fileName');
 
-fileInput.addEventListener('change', function() {
-    if (this.files && this.files.length > 0) {
-        fileNameDisplay.innerText = "✅ Фото: " + this.files[0].name;
-    }
-});
-
-document.getElementById('ticketForm').addEventListener('submit', async (e) => {
-    e.preventDefault();
-    const btn = document.getElementById('submitBtn');
-    const statusMsg = document.getElementById('statusMessage');
-    const room = document.getElementById('room').value;
-    const problem = document.getElementById('problem').value;
-
-    btn.disabled = true;
-    btn.innerText = "🚀 Отправка...";
-
-    const reader = new FileReader();
-    reader.onload = async function() {
-        const base64Data = reader.result.split(',')[1];
-        const payload = {
-            action: "create_ticket",
-            user: user ? `${user.first_name} ${user.last_name || ''}` : "Аноним",
-            telegramId: user ? user.id : 0,
-            room: room,
-            problem: problem,
-            photo: base64Data
-        };
-
-        try {
-            const response = await fetch(GOOGLE_SCRIPT_URL, {
-                method: 'POST',
-                headers: { 'Content-Type': 'text/plain;charset=utf-8' },
-                body: JSON.stringify(payload)
-            });
-            const result = await response.json();
-            if (result.status === 'success') {
-                statusMsg.style.color = "#2ecc71";
-                statusMsg.innerText = "✅ Заявка отправлена!";
-                document.getElementById('ticketForm').reset();
-                fileNameDisplay.innerText = "📸 Прикрепить фото";
-                setTimeout(() => { tg.close(); }, 2000);
-            }
-        } catch (error) {
-            statusMsg.style.color = "#e74c3c";
-            statusMsg.innerText = "❌ Ошибка!";
-            btn.disabled = false;
+if (fileInput) {
+    fileInput.addEventListener('change', function() {
+        if (this.files && this.files.length > 0) {
+            fileNameDisplay.innerText = "✅ Фото: " + this.files[0].name;
         }
-    };
-    reader.readAsDataURL(fileInput.files[0]);
-});
+    });
+}
 
-// Запуск проверки
+const ticketForm = document.getElementById('ticketForm');
+if (ticketForm) {
+    ticketForm.addEventListener('submit', async (e) => {
+        e.preventDefault();
+        const btn = document.getElementById('submitBtn');
+        const statusMsg = document.getElementById('statusMessage');
+        const room = document.getElementById('room').value;
+        const problem = document.getElementById('problem').value;
+
+        if (!fileInput.files.length) {
+            alert("Пожалуйста, прикрепите фото!");
+            return;
+        }
+
+        btn.disabled = true;
+        btn.innerText = "🚀 Отправка...";
+
+        const reader = new FileReader();
+        reader.onload = async function() {
+            const base64Data = reader.result.split(',')[1];
+            const payload = {
+                action: "create_ticket",
+                user: user ? `${user.first_name} ${user.last_name || ''}` : "Аноним",
+                telegramId: user ? user.id : 0,
+                room: room,
+                problem: problem,
+                photo: base64Data
+            };
+
+            try {
+                const response = await fetch(GOOGLE_SCRIPT_URL, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+                    body: JSON.stringify(payload)
+                });
+                const result = await response.json();
+                if (result.status === 'success') {
+                    statusMsg.style.color = "#2ecc71";
+                    statusMsg.innerText = "✅ Заявка отправлена!";
+                    ticketForm.reset();
+                    fileNameDisplay.innerText = "📸 Прикрепить фото";
+                    setTimeout(() => { tg.close(); }, 2000);
+                } else {
+                    throw new Error(result.error);
+                }
+            } catch (error) {
+                statusMsg.style.color = "#e74c3c";
+                statusMsg.innerText = "❌ Ошибка отправки!";
+                btn.disabled = false;
+                btn.innerText = "Попробовать снова";
+            }
+        };
+        reader.readAsDataURL(fileInput.files[0]);
+    });
+}
+
+// Запуск приложения
 checkRole();
