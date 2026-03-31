@@ -149,3 +149,15 @@ input[type="file"] {
     padding: 5px;
     width: auto;
 }
+
+.admin-stats {
+    background-color: var(--tg-theme-secondary-bg-color, #f0f2f5);
+    padding: 10px 15px;
+    border-radius: 15px;
+    display: inline-block;
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--tg-theme-text-color, #222);
+    margin-bottom: 20px;
+    border: 1px solid rgba(0,0,0,0.05);
+}
