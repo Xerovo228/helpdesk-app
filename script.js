@@ -47,14 +47,16 @@ async function loadTickets() {
         const res = await apiRequest({ action: "get_tickets" });
         list.innerHTML = "";
         
-        // Обновляем счетчик выполненных
+        // Показываем: ВСЕГО | ВЫПОЛНЕНО
+        const total = res.totalCount || 0;
         const completed = res.completedCount || 0;
-        stats.innerHTML = `✅ Выполнено: <b>${completed}</b>`;
+        stats.innerHTML = `📝 Всего: <b>${total}</b> | ✅ Готово: <b>${completed}</b>`;
 
         if (!res.tickets || res.tickets.length === 0) {
-            list.innerHTML = "<p style='text-align:center; padding: 20px;'>🎉 Нет заявок</p>";
+            list.innerHTML = "<p style='text-align:center; padding: 20px;'>🎉 Нет активных заявок</p>";
             return;
         }
+
         res.tickets.forEach(t => {
             const card = document.createElement('div');
             card.className = 'ticket-card';
@@ -70,7 +72,7 @@ async function loadTickets() {
         });
     } catch (e) { 
         list.innerHTML = "<p>Ошибка загрузки</p>"; 
-        stats.innerHTML = "Ошибка данных";
+        stats.innerHTML = "Ошибка связи";
     }
 }
 
@@ -78,7 +80,7 @@ window.closeTicket = async function(row, btn) {
     btn.disabled = true;
     try {
         await apiRequest({ action: "update_status", row: row, newStatus: "🟢 Готово" });
-        loadTickets(); // После закрытия статистика обновится сама
+        loadTickets();
     } catch (e) { btn.disabled = false; }
 };
 
