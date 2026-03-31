@@ -34,21 +34,28 @@
                 </div>
                 <button type="submit" id="submitBtn">Отправить</button>
             </form>
+
+            <div id="userTickets" style="margin-top: 30px; border-top: 1px solid #eee; padding-top: 20px;">
+                <h3 style="font-size: 16px; margin-bottom: 15px;">Мои заявки 📋</h3>
+                <div id="userTicketsList">
+                    <p style="font-size: 13px; color: var(--tg-theme-hint-color);">Загрузка заявок...</p>
+                </div>
+            </div>
         </div>
 
         <div id="adminView" style="display:none;">
             <div class="header">
-                <h2>Заявки 👨‍💻</h2>
+                <h2>Панель админа 👨‍💻</h2>
                 <div id="adminStats" class="admin-stats">
                     📊 Загрузка статистики...
                 </div>
             </div>
             <div id="ticketsList">
-                <p style="text-align:center;">Загрузка...</p>
+                <p style="text-align:center;">🔄 Загрузка списка...</p>
             </div>
         </div>
 
-        <div id="statusMessage"></div>
+        <div id="statusMessage" style="text-align: center; margin-top: 10px; font-weight: bold;"></div>
     </div>
     <script src="script.js"></script>
 </body>
