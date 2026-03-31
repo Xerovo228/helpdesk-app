@@ -161,3 +161,31 @@ input[type="file"] {
     margin-bottom: 20px;
     border: 1px solid rgba(0,0,0,0.05);
 }
+
+/* Все стили из прошлых шагов + эти */
+.user-ticket-item {
+    background-color: var(--tg-theme-secondary-bg-color, #f0f2f5);
+    padding: 15px;
+    border-radius: 12px;
+    margin-bottom: 12px;
+    border-left: 5px solid var(--tg-theme-button-color, #2481cc);
+}
+
+.btn-take {
+    background-color: var(--tg-theme-button-color, #2481cc) !important;
+    color: #fff !important;
+    border-radius: 20px;
+    flex: 2;
+    padding: 10px !important;
+    font-size: 14px !important;
+}
+
+.admin-stats {
+    background-color: var(--tg-theme-secondary-bg-color, #f0f2f5);
+    padding: 10px 15px;
+    border-radius: 15px;
+    display: inline-block;
+    font-size: 13px;
+    font-weight: 600;
+    margin-bottom: 20px;
+}
