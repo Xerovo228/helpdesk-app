@@ -33,7 +33,7 @@ async function checkRole() {
         if (res.role === 'admin') {
             document.getElementById('roleSwitcher').style.display = 'block';
             showView('admin');
-            loadBlockedUsers(); // Загружаем список заблокированных
+            loadBlockedUsers();
         } else {
             showView('student');
         }
@@ -133,7 +133,9 @@ function renderTicketsByFilter() {
         card.className = 'ticket-card';
         const isProcessing = t.status === "🔧 В работе";
         
+        // Экранируем имя для передачи в функцию
         const safeUserName = (t.userName || "Пользователь").replace(/'/g, "\\'");
+        const safeUserId = t.userId || "";
         
         const aiBlock = `
             <div class="ai-diagnostic">
@@ -144,7 +146,7 @@ function renderTicketsByFilter() {
         `;
         
         card.innerHTML = `
-            <div><b>ID: ${t.id}</b> | 🚪 Каб: ${t.room} | 👤 ${t.userName || "Неизвестный"}</div>
+            <div><b>ID: ${t.id}</b> | 🚪 Каб: ${t.room} | 👤 ${t.userName || "Неизвестный"} (ID: ${t.userId || "?"})</div>
             <div style="margin: 8px 0; font-size: 15px;">${t.problem}</div>
             ${aiBlock}
             <div class="card-actions">
@@ -153,7 +155,7 @@ function renderTicketsByFilter() {
                     ? `<button class="btn-done" onclick="closeTicket(${t.row}, this)">✅ Готово</button>`
                     : `<button class="btn-take" onclick="takeTicket(${t.row}, this)">🔧 В работу</button>`
                 }
-                <button class="btn-block" onclick="showBlockDialog('${t.userId}', '${safeUserName}')">🚫 Блок</button>
+                <button class="btn-block" onclick="showBlockDialog('${safeUserId}', '${safeUserName}')">🚫 Блок</button>
             </div>
         `;
         list.appendChild(card);
@@ -250,7 +252,7 @@ window.showBlockDialog = function(userId, userName) {
     const userNameSpan = document.getElementById('blockUserName');
     const reasonTextarea = document.getElementById('blockReason');
     
-    userNameSpan.innerText = 'Пользователь: ' + userName;
+    userNameSpan.innerText = 'Пользователь: ' + userName + ' (ID: ' + userId + ')';
     reasonTextarea.value = '';
     
     modal.style.display = 'flex';
