@@ -14,7 +14,6 @@ let allTicketsData = [];
 let user = tg.initDataUnsafe?.user;
 let currentAdminTab = 'tickets';
 
-// Переменные для модального окна блокировки
 let pendingBlockUserId = null;
 let pendingBlockUserName = null;
 
@@ -59,7 +58,6 @@ function showView(view) {
 
 window.showAdminTab = function(tab) {
     currentAdminTab = tab;
-    
     const ticketsTab = document.getElementById('ticketsTab');
     const blockedTab = document.getElementById('blockedTab');
     const ticketsBtn = document.getElementById('tabTicketsBtn');
@@ -89,9 +87,6 @@ async function loadTickets() {
         const res = await apiRequest({ action: "get_tickets" });
         allTicketsData = res.tickets || [];
         
-        // ОТЛАДКА: смотрим, что пришло с сервера
-        console.log("get_tickets ответ:", allTicketsData);
-        
         let itCount = 0, ahchCount = 0, networkCount = 0;
         allTicketsData.forEach(t => {
             if (t.aiCategory === 'IT') itCount++;
@@ -104,7 +99,6 @@ async function loadTickets() {
         if (currentAdminTab === 'tickets') {
             renderTicketsByFilter();
         }
-        
     } catch (e) {
         stats.innerHTML = "❌ Ошибка связи";
         console.error(e);
@@ -113,7 +107,6 @@ async function loadTickets() {
 
 function renderTicketsByFilter() {
     const list = document.getElementById('ticketsList');
-    
     let filteredTickets = allTicketsData;
     if (currentFilter !== 'all') {
         filteredTickets = allTicketsData.filter(t => t.aiCategory === currentFilter);
@@ -133,13 +126,9 @@ function renderTicketsByFilter() {
         card.className = 'ticket-card';
         const isProcessing = t.status === "🔧 В работе";
         
-        // Проверяем, пришли ли данные из бэкенда
-        const hasValidUserId = t.userId && t.userId !== "" && t.userId !== "?" && t.userId !== "null";
-        const userName = t.userName || t.user || "Неизвестный";
-        const userId = t.userId || t.id_user || "";
-        
+        const userId = t.userId || "";
+        const userName = t.userName || "Неизвестный";
         const safeUserName = userName.replace(/'/g, "\\'");
-        const safeUserId = String(userId);
         
         const aiBlock = `
             <div class="ai-diagnostic">
@@ -150,7 +139,7 @@ function renderTicketsByFilter() {
         `;
         
         card.innerHTML = `
-            <div><b>ID: ${t.id}</b> | 🚪 Каб: ${t.room} | 👤 ${userName} (ID: ${safeUserId || "?"})</div>
+            <div><b>ID: ${t.id}</b> | 🚪 Каб: ${t.room} | 👤 ${userName} (ID: ${userId || "?"})</div>
             <div style="margin: 8px 0; font-size: 15px;">${t.problem}</div>
             ${aiBlock}
             <div class="card-actions">
@@ -159,10 +148,7 @@ function renderTicketsByFilter() {
                     ? `<button class="btn-done" onclick="closeTicket(${t.row}, this)">✅ Готово</button>`
                     : `<button class="btn-take" onclick="takeTicket(${t.row}, this)">🔧 В работу</button>`
                 }
-                ${hasValidUserId 
-                    ? `<button class="btn-block" onclick="showBlockDialog('${safeUserId}', '${safeUserName}')">🚫 Блок</button>`
-                    : `<button class="btn-block" style="background: #6c757d !important; cursor: not-allowed;" disabled title="ID пользователя отсутствует">🚫 Блок (нет ID)</button>`
-                }
+                <button class="btn-block" onclick="showBlockDialog('${userId}', '${safeUserName}')">🚫 Блок</button>
             </div>
         `;
         list.appendChild(card);
@@ -172,21 +158,16 @@ function renderTicketsByFilter() {
 async function loadBlockedUsers() {
     const list = document.getElementById('blockedList');
     if (!list) return;
-    
     list.innerHTML = "<p style='text-align:center;'>🔄 Загрузка списка заблокированных...</p>";
     
     try {
         const res = await apiRequest({ action: 'get_blocked_users', adminId: user.id });
-        
         if (res.status !== 'success' || !res.blockedUsers || res.blockedUsers.length === 0) {
             list.innerHTML = "<p style='text-align:center; padding: 20px;'>🚫 Нет заблокированных пользователей</p>";
             return;
         }
-        
         list.innerHTML = "";
-        
         res.blockedUsers.forEach(blocked => {
-            const hasValidId = blocked.telegramId && blocked.telegramId !== "" && blocked.telegramId !== "null";
             const card = document.createElement('div');
             card.className = 'blocked-card';
             let formattedDate = blocked.date || "Дата не указана";
@@ -194,22 +175,18 @@ async function loadBlockedUsers() {
                 formattedDate = formattedDate.replace('T', ' ').substring(0, 16);
             }
             card.innerHTML = `
-                <div><b>👤 ${blocked.userName || "Неизвестный"}</b> | 🆔 ${blocked.telegramId || "?"}</div>
+                <div><b>👤 ${blocked.userName || "Неизвестный"}</b> | 🆔 ${blocked.telegramId}</div>
                 <div style="margin: 8px 0; font-size: 13px; color: #666;">📅 Заблокирован: ${formattedDate}</div>
                 <div style="margin: 8px 0; font-size: 13px; background: #f8d7da; padding: 8px; border-radius: 10px;">
                     📝 <b>Причина:</b> ${blocked.reason || "Не указана"}
                 </div>
                 <div style="margin: 8px 0; font-size: 12px; color: #666;">👮 Заблокировал: ${blocked.blockedBy || "Администратор"}</div>
                 <div class="card-actions">
-                    ${hasValidId
-                        ? `<button class="btn-unblock" onclick="unblockUser('${blocked.telegramId}', '${blocked.userName.replace(/'/g, "\\'")}')">🔓 Разблокировать</button>`
-                        : `<button class="btn-unblock" style="background: #6c757d !important; cursor: not-allowed;" disabled>🔓 Разблокировать (нет ID)</button>`
-                    }
+                    <button class="btn-unblock" onclick="unblockUser('${blocked.telegramId}', '${blocked.userName.replace(/'/g, "\\'")}')">🔓 Разблокировать</button>
                 </div>
             `;
             list.appendChild(card);
         });
-        
     } catch (e) {
         list.innerHTML = "❌ Ошибка загрузки списка";
         console.error(e);
@@ -222,12 +199,10 @@ function highlightFilter(activeFilter) {
         const btn = document.getElementById(id);
         if (btn) btn.classList.remove('filter-btn-active');
     });
-    
     let activeId = 'filterAllBtn';
     if (activeFilter === 'IT') activeId = 'filterITBtn';
     else if (activeFilter === 'АХЧ') activeId = 'filterAHCHBtn';
     else if (activeFilter === 'Сеть') activeId = 'filterNetworkBtn';
-    
     const activeBtn = document.getElementById(activeId);
     if (activeBtn) activeBtn.classList.add('filter-btn-active');
 }
@@ -237,19 +212,16 @@ window.filterAll = function() {
     renderTicketsByFilter();
     highlightFilter('all');
 };
-
 window.filterIT = function() {
     currentFilter = 'IT';
     renderTicketsByFilter();
     highlightFilter('IT');
 };
-
 window.filterAHCH = function() {
     currentFilter = 'АХЧ';
     renderTicketsByFilter();
     highlightFilter('АХЧ');
 };
-
 window.filterNetwork = function() {
     currentFilter = 'Сеть';
     renderTicketsByFilter();
@@ -260,22 +232,18 @@ window.showBlockDialog = function(userId, userName) {
     if (!userId || userId === "" || userId === "?" || userId === "null" || userId === "undefined") {
         tg.showPopup({
             title: 'Ошибка',
-            message: '❌ Не удалось определить ID пользователя.\n\nПроверьте, что в таблице Tickets в колонке C заполнен Telegram ID для этой заявки.',
+            message: '❌ Не удалось определить ID пользователя. Убедитесь, что в таблице Tickets в колонке C заполнен Telegram ID для этой заявки.',
             buttons: [{ type: 'ok' }]
         });
         return;
     }
-    
     pendingBlockUserId = userId;
     pendingBlockUserName = userName;
-    
     const modal = document.getElementById('blockModal');
     const userNameSpan = document.getElementById('blockUserName');
     const reasonTextarea = document.getElementById('blockReason');
-    
     userNameSpan.innerText = 'Пользователь: ' + userName + ' (ID: ' + userId + ')';
     reasonTextarea.value = '';
-    
     modal.style.display = 'flex';
 };
 
@@ -289,28 +257,16 @@ window.closeBlockModal = function() {
 window.confirmBlock = async function() {
     const reasonTextarea = document.getElementById('blockReason');
     const reason = reasonTextarea.value.trim();
-    
     if (reason === "") {
-        tg.showPopup({
-            title: 'Ошибка',
-            message: 'Пожалуйста, укажите причину блокировки!',
-            buttons: [{ type: 'ok' }]
-        });
+        tg.showPopup({ title: 'Ошибка', message: 'Пожалуйста, укажите причину блокировки!', buttons: [{ type: 'ok' }] });
         return;
     }
-    
     if (!pendingBlockUserId || pendingBlockUserId === "" || pendingBlockUserId === "?" || pendingBlockUserId === "null") {
-        tg.showPopup({
-            title: 'Ошибка',
-            message: '❌ Не удалось определить пользователя для блокировки. ID пользователя не найден.',
-            buttons: [{ type: 'ok' }]
-        });
+        tg.showPopup({ title: 'Ошибка', message: '❌ Не удалось определить пользователя для блокировки.', buttons: [{ type: 'ok' }] });
         closeBlockModal();
         return;
     }
-    
     closeBlockModal();
-    
     try {
         const res = await apiRequest({
             action: 'block_user',
@@ -320,13 +276,8 @@ window.confirmBlock = async function() {
             reason: reason,
             adminName: user?.first_name || user?.username || "Администратор"
         });
-        
         if (res.status === 'success') {
-            tg.showPopup({
-                title: '✅ Заблокирован',
-                message: 'Пользователь ' + pendingBlockUserName + ' (ID: ' + pendingBlockUserId + ') заблокирован.\nПричина: ' + reason,
-                buttons: [{ type: 'ok' }]
-            });
+            tg.showPopup({ title: '✅ Заблокирован', message: 'Пользователь ' + pendingBlockUserName + ' (ID: ' + pendingBlockUserId + ') заблокирован.\nПричина: ' + reason, buttons: [{ type: 'ok' }] });
             loadTickets();
             loadBlockedUsers();
         } else {
@@ -334,46 +285,25 @@ window.confirmBlock = async function() {
         }
     } catch (error) {
         console.error('Block error:', error);
-        tg.showPopup({
-            title: 'Ошибка',
-            message: 'Не удалось заблокировать пользователя: ' + error.message,
-            buttons: [{ type: 'ok' }]
-        });
+        tg.showPopup({ title: 'Ошибка', message: 'Не удалось заблокировать пользователя: ' + error.message, buttons: [{ type: 'ok' }] });
     }
 };
 
 window.unblockUser = async function(userId, userName) {
     if (!userId || userId === "" || userId === "?" || userId === "null" || userId === "undefined") {
-        tg.showPopup({
-            title: 'Ошибка',
-            message: '❌ Не удалось определить ID пользователя для разблокировки.',
-            buttons: [{ type: 'ok' }]
-        });
+        tg.showPopup({ title: 'Ошибка', message: '❌ Не удалось определить ID пользователя для разблокировки.', buttons: [{ type: 'ok' }] });
         return;
     }
-    
     tg.showPopup({
         title: 'Разблокировка',
         message: 'Разблокировать пользователя ' + userName + ' (ID: ' + userId + ')?',
-        buttons: [
-            { type: 'cancel', text: 'Отмена' },
-            { type: 'default', text: 'Разблокировать' }
-        ]
+        buttons: [{ type: 'cancel', text: 'Отмена' }, { type: 'default', text: 'Разблокировать' }]
     }, async function(buttonIndex) {
         if (buttonIndex === 1) {
             try {
-                const res = await apiRequest({
-                    action: 'unblock_user',
-                    adminId: user.id,
-                    targetId: userId
-                });
-                
+                const res = await apiRequest({ action: 'unblock_user', adminId: user.id, targetId: userId });
                 if (res.status === 'success') {
-                    tg.showPopup({
-                        title: '✅ Разблокирован',
-                        message: 'Пользователь ' + userName + ' разблокирован.',
-                        buttons: [{ type: 'ok' }]
-                    });
+                    tg.showPopup({ title: '✅ Разблокирован', message: 'Пользователь ' + userName + ' разблокирован.', buttons: [{ type: 'ok' }] });
                     loadTickets();
                     loadBlockedUsers();
                 } else {
@@ -381,11 +311,7 @@ window.unblockUser = async function(userId, userName) {
                 }
             } catch (error) {
                 console.error('Unblock error:', error);
-                tg.showPopup({
-                    title: 'Ошибка',
-                    message: 'Не удалось разблокировать пользователя: ' + error.message,
-                    buttons: [{ type: 'ok' }]
-                });
+                tg.showPopup({ title: 'Ошибка', message: 'Не удалось разблокировать пользователя: ' + error.message, buttons: [{ type: 'ok' }] });
             }
         }
     });
@@ -404,13 +330,7 @@ async function loadUserTickets() {
             const item = document.createElement('div');
             item.className = 'user-ticket-item';
             let statusColor = t.status.includes('Новая') ? '#ff4d4f' : '#faad14';
-            item.innerHTML = `
-                <div style="display: flex; justify-content: space-between;">
-                    <span style="font-weight: 600;">№${t.id} — Каб. ${t.room}</span>
-                    <span style="color: ${statusColor}; font-size: 12px; font-weight: bold;">${t.status}</span>
-                </div>
-                <div style="font-size: 12px; margin-top: 4px; opacity: 0.8;">${t.problem}</div>
-            `;
+            item.innerHTML = `<div style="display: flex; justify-content: space-between;"><span style="font-weight: 600;">№${t.id} — Каб. ${t.room}</span><span style="color: ${statusColor}; font-size: 12px; font-weight: bold;">${t.status}</span></div><div style="font-size: 12px; margin-top: 4px; opacity: 0.8;">${t.problem}</div>`;
             list.appendChild(item);
         });
     } catch (e) {
@@ -447,20 +367,17 @@ window.addEventListener('load', () => {
     const ticketForm = document.getElementById('ticketForm');
     const fileInput = document.getElementById('photo');
     const fileNameDisplay = document.getElementById('fileName');
-
     if (fileInput) {
         fileInput.addEventListener('change', function() {
             if (this.files.length > 0) fileNameDisplay.innerText = "✅ " + this.files[0].name;
         });
     }
-
     if (ticketForm) {
         ticketForm.addEventListener('submit', async (e) => {
             e.preventDefault();
             const btn = document.getElementById('submitBtn');
             btn.disabled = true;
             btn.innerText = "🤖 ИИ анализирует...";
-
             const reader = new FileReader();
             reader.onload = async function() {
                 const base64Data = reader.result.split(',')[1];
@@ -473,20 +390,11 @@ window.addEventListener('load', () => {
                         problem: document.getElementById('problem').value,
                         photo: base64Data
                     });
-                    
                     if (result.status === 'success') {
-                        tg.showPopup({
-                            title: '✅ Отправлено!',
-                            message: 'Заявка создана. Администратор скоро свяжется с вами.',
-                            buttons: [{ type: 'ok' }]
-                        });
+                        tg.showPopup({ title: '✅ Отправлено!', message: 'Заявка создана. Администратор скоро свяжется с вами.', buttons: [{ type: 'ok' }] });
                         setTimeout(() => tg.close(), 1500);
                     } else if (result.error) {
-                        tg.showPopup({
-                            title: '⚠️ Ошибка',
-                            message: result.error,
-                            buttons: [{ type: 'ok' }]
-                        });
+                        tg.showPopup({ title: '⚠️ Ошибка', message: result.error, buttons: [{ type: 'ok' }] });
                         btn.disabled = false;
                         btn.innerText = "Отправить";
                     } else {
@@ -495,11 +403,7 @@ window.addEventListener('load', () => {
                 } catch (error) {
                     btn.disabled = false;
                     btn.innerText = "❌ Ошибка отправки";
-                    tg.showPopup({
-                        title: '⚠️ Ошибка',
-                        message: 'Не удалось отправить заявку. Попробуйте позже.',
-                        buttons: [{ type: 'ok' }]
-                    });
+                    tg.showPopup({ title: '⚠️ Ошибка', message: 'Не удалось отправить заявку. Попробуйте позже.', buttons: [{ type: 'ok' }] });
                 }
             };
             reader.readAsDataURL(fileInput.files[0]);
