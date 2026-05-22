@@ -1,6 +1,6 @@
 // ============================================
 // ИНТЕЛЛЕКТУАЛЬНЫЙ SERVICE DESK
-// Telegram Mini App + ИИ + Блокировка с модальным окном
+// Telegram Mini App + ИИ + Блокировка + Вкладки
 // ============================================
 
 let tg = window.Telegram.WebApp;
@@ -12,6 +12,7 @@ let currentRole = 'student';
 let currentFilter = 'all';
 let allTicketsData = [];
 let user = tg.initDataUnsafe?.user;
+let currentAdminTab = 'tickets';
 
 // Переменные для модального окна блокировки
 let pendingBlockUserId = null;
@@ -32,6 +33,7 @@ async function checkRole() {
         if (res.role === 'admin') {
             document.getElementById('roleSwitcher').style.display = 'block';
             showView('admin');
+            loadBlockedUsers(); // Загружаем список заблокированных
         } else {
             showView('student');
         }
@@ -48,10 +50,38 @@ function showView(view) {
     currentRole = view;
     document.getElementById('studentView').style.display = view === 'student' ? 'block' : 'none';
     document.getElementById('adminView').style.display = view === 'admin' ? 'block' : 'none';
-    if (view === 'admin') loadTickets();
+    if (view === 'admin') {
+        loadTickets();
+        loadBlockedUsers();
+    }
     if (view === 'student') loadUserTickets();
 }
 
+// ========== ПЕРЕКЛЮЧЕНИЕ ВКЛАДОК В АДМИН-ПАНЕЛИ ==========
+window.showAdminTab = function(tab) {
+    currentAdminTab = tab;
+    
+    const ticketsTab = document.getElementById('ticketsTab');
+    const blockedTab = document.getElementById('blockedTab');
+    const ticketsBtn = document.getElementById('tabTicketsBtn');
+    const blockedBtn = document.getElementById('tabBlockedBtn');
+    
+    if (tab === 'tickets') {
+        ticketsTab.style.display = 'block';
+        blockedTab.style.display = 'none';
+        ticketsBtn.classList.add('admin-tab-active');
+        blockedBtn.classList.remove('admin-tab-active');
+        renderTicketsByFilter();
+    } else {
+        ticketsTab.style.display = 'none';
+        blockedTab.style.display = 'block';
+        blockedBtn.classList.add('admin-tab-active');
+        ticketsBtn.classList.remove('admin-tab-active');
+        loadBlockedUsers();
+    }
+};
+
+// ========== ЗАГРУЗКА ЗАЯВОК ДЛЯ АДМИНА ==========
 async function loadTickets() {
     const list = document.getElementById('ticketsList');
     const stats = document.getElementById('adminStats');
@@ -70,7 +100,9 @@ async function loadTickets() {
         
         stats.innerHTML = `📝 Всего: <b>${allTicketsData.length}</b> | 💻 IT: <b>${itCount}</b> | 🔧 АХЧ: <b>${ahchCount}</b> | 🌐 Сеть: <b>${networkCount}</b>`;
         
-        renderTicketsByFilter();
+        if (currentAdminTab === 'tickets') {
+            renderTicketsByFilter();
+        }
         
     } catch (e) {
         stats.innerHTML = "❌ Ошибка связи";
@@ -78,6 +110,7 @@ async function loadTickets() {
     }
 }
 
+// ========== ОТРИСОВКА ЗАЯВОК С УЧЁТОМ ФИЛЬТРА ==========
 function renderTicketsByFilter() {
     const list = document.getElementById('ticketsList');
     
@@ -127,6 +160,47 @@ function renderTicketsByFilter() {
     });
 }
 
+// ========== ЗАГРУЗКА СПИСКА ЗАБЛОКИРОВАННЫХ ПОЛЬЗОВАТЕЛЕЙ ==========
+async function loadBlockedUsers() {
+    const list = document.getElementById('blockedList');
+    if (!list) return;
+    
+    list.innerHTML = "<p style='text-align:center;'>🔄 Загрузка списка заблокированных...</p>";
+    
+    try {
+        const res = await apiRequest({ action: 'get_blocked_users', adminId: user.id });
+        
+        if (res.status !== 'success' || !res.blockedUsers || res.blockedUsers.length === 0) {
+            list.innerHTML = "<p style='text-align:center; padding: 20px;'>🚫 Нет заблокированных пользователей</p>";
+            return;
+        }
+        
+        list.innerHTML = "";
+        
+        res.blockedUsers.forEach(blocked => {
+            const card = document.createElement('div');
+            card.className = 'blocked-card';
+            card.innerHTML = `
+                <div><b>👤 ${blocked.userName || "Неизвестный"}</b> | 🆔 ${blocked.telegramId}</div>
+                <div style="margin: 8px 0; font-size: 13px; color: #666;">📅 Заблокирован: ${blocked.date || "Дата не указана"}</div>
+                <div style="margin: 8px 0; font-size: 13px; background: #f8d7da; padding: 8px; border-radius: 10px;">
+                    📝 <b>Причина:</b> ${blocked.reason || "Не указана"}
+                </div>
+                <div style="margin: 8px 0; font-size: 12px; color: #666;">👮 Заблокировал: ${blocked.blockedBy || "Администратор"}</div>
+                <div class="card-actions">
+                    <button class="btn-unblock" onclick="unblockUser('${blocked.telegramId}', '${blocked.userName.replace(/'/g, "\\'")}')">🔓 Разблокировать</button>
+                </div>
+            `;
+            list.appendChild(card);
+        });
+        
+    } catch (e) {
+        list.innerHTML = "❌ Ошибка загрузки списка";
+        console.error(e);
+    }
+}
+
+// ========== ФИЛЬТРАЦИЯ ПО КАТЕГОРИЯМ ==========
 function highlightFilter(activeFilter) {
     const buttons = ['filterAllBtn', 'filterITBtn', 'filterAHCHBtn', 'filterNetworkBtn'];
     buttons.forEach(id => {
@@ -221,6 +295,7 @@ window.confirmBlock = async function() {
                 buttons: [{ type: 'ok' }]
             });
             loadTickets();
+            loadBlockedUsers();
         } else {
             throw new Error(res.error);
         }
@@ -233,6 +308,7 @@ window.confirmBlock = async function() {
     }
 };
 
+// ========== РАЗБЛОКИРОВКА ПОЛЬЗОВАТЕЛЯ ==========
 window.unblockUser = async function(userId, userName) {
     tg.showPopup({
         title: 'Разблокировка',
@@ -257,6 +333,7 @@ window.unblockUser = async function(userId, userName) {
                         buttons: [{ type: 'ok' }]
                     });
                     loadTickets();
+                    loadBlockedUsers();
                 } else {
                     throw new Error(res.error);
                 }
