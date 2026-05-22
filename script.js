@@ -250,6 +250,15 @@ window.filterNetwork = function() {
 
 // ========== МОДАЛЬНОЕ ОКНО ДЛЯ БЛОКИРОВКИ ==========
 window.showBlockDialog = function(userId, userName) {
+    if (!userId || userId === "" || userId === "?") {
+        tg.showPopup({
+            title: 'Ошибка',
+            message: 'Не удалось определить ID пользователя. Попробуйте обновить страницу.',
+            buttons: [{ type: 'ok' }]
+        });
+        return;
+    }
+    
     pendingBlockUserId = userId;
     pendingBlockUserName = userName;
     
@@ -283,6 +292,17 @@ window.confirmBlock = async function() {
         return;
     }
     
+    // Проверяем, что данные для блокировки есть
+    if (!pendingBlockUserId || pendingBlockUserId === "" || pendingBlockUserId === "?") {
+        tg.showPopup({
+            title: 'Ошибка',
+            message: 'Не удалось определить пользователя для блокировки. Обновите страницу и попробуйте снова.',
+            buttons: [{ type: 'ok' }]
+        });
+        closeBlockModal();
+        return;
+    }
+    
     closeBlockModal();
     
     try {
@@ -292,7 +312,7 @@ window.confirmBlock = async function() {
             targetId: pendingBlockUserId,
             userName: pendingBlockUserName,
             reason: reason,
-            adminName: user?.first_name || "Администратор"
+            adminName: user?.first_name || user?.username || "Администратор"
         });
         
         if (res.status === 'success') {
@@ -304,12 +324,13 @@ window.confirmBlock = async function() {
             loadTickets();
             loadBlockedUsers();
         } else {
-            throw new Error(res.error);
+            throw new Error(res.error || 'Неизвестная ошибка');
         }
     } catch (error) {
+        console.error('Block error:', error);
         tg.showPopup({
             title: 'Ошибка',
-            message: 'Не удалось заблокировать пользователя',
+            message: 'Не удалось заблокировать пользователя: ' + error.message,
             buttons: [{ type: 'ok' }]
         });
     }
@@ -317,6 +338,15 @@ window.confirmBlock = async function() {
 
 // ========== РАЗБЛОКИРОВКА ПОЛЬЗОВАТЕЛЯ ==========
 window.unblockUser = async function(userId, userName) {
+    if (!userId || userId === "") {
+        tg.showPopup({
+            title: 'Ошибка',
+            message: 'Не удалось определить пользователя для разблокировки.',
+            buttons: [{ type: 'ok' }]
+        });
+        return;
+    }
+    
     tg.showPopup({
         title: 'Разблокировка',
         message: 'Разблокировать пользователя ' + userName + '?',
@@ -342,12 +372,13 @@ window.unblockUser = async function(userId, userName) {
                     loadTickets();
                     loadBlockedUsers();
                 } else {
-                    throw new Error(res.error);
+                    throw new Error(res.error || 'Неизвестная ошибка');
                 }
             } catch (error) {
+                console.error('Unblock error:', error);
                 tg.showPopup({
                     title: 'Ошибка',
-                    message: 'Не удалось разблокировать пользователя',
+                    message: 'Не удалось разблокировать пользователя: ' + error.message,
                     buttons: [{ type: 'ok' }]
                 });
             }
