@@ -1,7 +1,7 @@
 // ============================================
 // ИНТЕЛЛЕКТУАЛЬНЫЙ SERVICE DESK
 // Фронтенд для Telegram Mini App
-// С фильтрацией по категориям ИИ
+// Без отображения совета (только категория + приоритет)
 // ============================================
 
 let tg = window.Telegram.WebApp;
@@ -76,7 +76,7 @@ async function loadTickets() {
   }
 }
 
-// ========== ОТРИСОВКА ЗАЯВОК С УЧЁТОМ ФИЛЬТРА ==========
+// ========== ОТРИСОВКА ЗАЯВОК С УЧЁТОМ ФИЛЬТРА (БЕЗ СОВЕТА) ==========
 function renderTicketsByFilter() {
   const list = document.getElementById('ticketsList');
   
@@ -99,13 +99,12 @@ function renderTicketsByFilter() {
     card.className = 'ticket-card';
     const isProcessing = t.status === "🔧 В работе";
     
-    // Блок ИИ-диагностики с использованием CSS-классов
+    // Блок ИИ-диагностики ТОЛЬКО с категорией и приоритетом (без совета)
     const aiBlock = `
       <div class="ai-diagnostic">
         <div class="ai-diagnostic-title">🤖 ИИ-диагностика:</div>
         <div class="ai-diagnostic-text">📁 Категория: ${categoryEmoji[t.aiCategory] || '📁'} ${t.aiCategory || 'IT'}</div>
         <div class="ai-diagnostic-text">⚡ Приоритет: ${priorityText[t.aiPriority] || '⚠️ Средний'}</div>
-        <div class="ai-diagnostic-text" style="margin-top: 5px;">💡 Совет: <i>${t.aiAdvice || 'Нет данных'}</i></div>
       </div>
     `;
     
