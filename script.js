@@ -57,7 +57,6 @@ function showView(view) {
     if (view === 'student') loadUserTickets();
 }
 
-// ========== ПЕРЕКЛЮЧЕНИЕ ВКЛАДОК В АДМИН-ПАНЕЛИ ==========
 window.showAdminTab = function(tab) {
     currentAdminTab = tab;
     
@@ -81,7 +80,6 @@ window.showAdminTab = function(tab) {
     }
 };
 
-// ========== ЗАГРУЗКА ЗАЯВОК ДЛЯ АДМИНА ==========
 async function loadTickets() {
     const list = document.getElementById('ticketsList');
     const stats = document.getElementById('adminStats');
@@ -90,6 +88,9 @@ async function loadTickets() {
     try {
         const res = await apiRequest({ action: "get_tickets" });
         allTicketsData = res.tickets || [];
+        
+        // ОТЛАДКА: смотрим, что пришло с сервера
+        console.log("get_tickets ответ:", allTicketsData);
         
         let itCount = 0, ahchCount = 0, networkCount = 0;
         allTicketsData.forEach(t => {
@@ -110,7 +111,6 @@ async function loadTickets() {
     }
 }
 
-// ========== ОТРИСОВКА ЗАЯВОК С УЧЁТОМ ФИЛЬТРА ==========
 function renderTicketsByFilter() {
     const list = document.getElementById('ticketsList');
     
@@ -133,9 +133,13 @@ function renderTicketsByFilter() {
         card.className = 'ticket-card';
         const isProcessing = t.status === "🔧 В работе";
         
-        // Экранируем имя для передачи в функцию
-        const safeUserName = (t.userName || "Пользователь").replace(/'/g, "\\'");
-        const safeUserId = t.userId || "";
+        // Проверяем, пришли ли данные из бэкенда
+        const hasValidUserId = t.userId && t.userId !== "" && t.userId !== "?" && t.userId !== "null";
+        const userName = t.userName || t.user || "Неизвестный";
+        const userId = t.userId || t.id_user || "";
+        
+        const safeUserName = userName.replace(/'/g, "\\'");
+        const safeUserId = String(userId);
         
         const aiBlock = `
             <div class="ai-diagnostic">
@@ -146,7 +150,7 @@ function renderTicketsByFilter() {
         `;
         
         card.innerHTML = `
-            <div><b>ID: ${t.id}</b> | 🚪 Каб: ${t.room} | 👤 ${t.userName || "Неизвестный"} (ID: ${t.userId || "?"})</div>
+            <div><b>ID: ${t.id}</b> | 🚪 Каб: ${t.room} | 👤 ${userName} (ID: ${safeUserId || "?"})</div>
             <div style="margin: 8px 0; font-size: 15px;">${t.problem}</div>
             ${aiBlock}
             <div class="card-actions">
@@ -155,14 +159,16 @@ function renderTicketsByFilter() {
                     ? `<button class="btn-done" onclick="closeTicket(${t.row}, this)">✅ Готово</button>`
                     : `<button class="btn-take" onclick="takeTicket(${t.row}, this)">🔧 В работу</button>`
                 }
-                <button class="btn-block" onclick="showBlockDialog('${safeUserId}', '${safeUserName}')">🚫 Блок</button>
+                ${hasValidUserId 
+                    ? `<button class="btn-block" onclick="showBlockDialog('${safeUserId}', '${safeUserName}')">🚫 Блок</button>`
+                    : `<button class="btn-block" style="background: #6c757d !important; cursor: not-allowed;" disabled title="ID пользователя отсутствует">🚫 Блок (нет ID)</button>`
+                }
             </div>
         `;
         list.appendChild(card);
     });
 }
 
-// ========== ЗАГРУЗКА СПИСКА ЗАБЛОКИРОВАННЫХ ПОЛЬЗОВАТЕЛЕЙ ==========
 async function loadBlockedUsers() {
     const list = document.getElementById('blockedList');
     if (!list) return;
@@ -180,22 +186,25 @@ async function loadBlockedUsers() {
         list.innerHTML = "";
         
         res.blockedUsers.forEach(blocked => {
+            const hasValidId = blocked.telegramId && blocked.telegramId !== "" && blocked.telegramId !== "null";
             const card = document.createElement('div');
             card.className = 'blocked-card';
-            // Форматируем дату из ISO в читаемый вид
             let formattedDate = blocked.date || "Дата не указана";
             if (formattedDate && formattedDate.includes('T')) {
                 formattedDate = formattedDate.replace('T', ' ').substring(0, 16);
             }
             card.innerHTML = `
-                <div><b>👤 ${blocked.userName || "Неизвестный"}</b> | 🆔 ${blocked.telegramId}</div>
+                <div><b>👤 ${blocked.userName || "Неизвестный"}</b> | 🆔 ${blocked.telegramId || "?"}</div>
                 <div style="margin: 8px 0; font-size: 13px; color: #666;">📅 Заблокирован: ${formattedDate}</div>
                 <div style="margin: 8px 0; font-size: 13px; background: #f8d7da; padding: 8px; border-radius: 10px;">
                     📝 <b>Причина:</b> ${blocked.reason || "Не указана"}
                 </div>
                 <div style="margin: 8px 0; font-size: 12px; color: #666;">👮 Заблокировал: ${blocked.blockedBy || "Администратор"}</div>
                 <div class="card-actions">
-                    <button class="btn-unblock" onclick="unblockUser('${blocked.telegramId}', '${blocked.userName.replace(/'/g, "\\'")}')">🔓 Разблокировать</button>
+                    ${hasValidId
+                        ? `<button class="btn-unblock" onclick="unblockUser('${blocked.telegramId}', '${blocked.userName.replace(/'/g, "\\'")}')">🔓 Разблокировать</button>`
+                        : `<button class="btn-unblock" style="background: #6c757d !important; cursor: not-allowed;" disabled>🔓 Разблокировать (нет ID)</button>`
+                    }
                 </div>
             `;
             list.appendChild(card);
@@ -207,7 +216,6 @@ async function loadBlockedUsers() {
     }
 }
 
-// ========== ФИЛЬТРАЦИЯ ПО КАТЕГОРИЯМ ==========
 function highlightFilter(activeFilter) {
     const buttons = ['filterAllBtn', 'filterITBtn', 'filterAHCHBtn', 'filterNetworkBtn'];
     buttons.forEach(id => {
@@ -248,12 +256,11 @@ window.filterNetwork = function() {
     highlightFilter('Сеть');
 };
 
-// ========== МОДАЛЬНОЕ ОКНО ДЛЯ БЛОКИРОВКИ ==========
 window.showBlockDialog = function(userId, userName) {
-    if (!userId || userId === "" || userId === "?") {
+    if (!userId || userId === "" || userId === "?" || userId === "null" || userId === "undefined") {
         tg.showPopup({
             title: 'Ошибка',
-            message: 'Не удалось определить ID пользователя. Попробуйте обновить страницу.',
+            message: '❌ Не удалось определить ID пользователя.\n\nПроверьте, что в таблице Tickets в колонке C заполнен Telegram ID для этой заявки.',
             buttons: [{ type: 'ok' }]
         });
         return;
@@ -292,11 +299,10 @@ window.confirmBlock = async function() {
         return;
     }
     
-    // Проверяем, что данные для блокировки есть
-    if (!pendingBlockUserId || pendingBlockUserId === "" || pendingBlockUserId === "?") {
+    if (!pendingBlockUserId || pendingBlockUserId === "" || pendingBlockUserId === "?" || pendingBlockUserId === "null") {
         tg.showPopup({
             title: 'Ошибка',
-            message: 'Не удалось определить пользователя для блокировки. Обновите страницу и попробуйте снова.',
+            message: '❌ Не удалось определить пользователя для блокировки. ID пользователя не найден.',
             buttons: [{ type: 'ok' }]
         });
         closeBlockModal();
@@ -318,7 +324,7 @@ window.confirmBlock = async function() {
         if (res.status === 'success') {
             tg.showPopup({
                 title: '✅ Заблокирован',
-                message: 'Пользователь ' + pendingBlockUserName + ' заблокирован.\nПричина: ' + reason,
+                message: 'Пользователь ' + pendingBlockUserName + ' (ID: ' + pendingBlockUserId + ') заблокирован.\nПричина: ' + reason,
                 buttons: [{ type: 'ok' }]
             });
             loadTickets();
@@ -336,12 +342,11 @@ window.confirmBlock = async function() {
     }
 };
 
-// ========== РАЗБЛОКИРОВКА ПОЛЬЗОВАТЕЛЯ ==========
 window.unblockUser = async function(userId, userName) {
-    if (!userId || userId === "") {
+    if (!userId || userId === "" || userId === "?" || userId === "null" || userId === "undefined") {
         tg.showPopup({
             title: 'Ошибка',
-            message: 'Не удалось определить пользователя для разблокировки.',
+            message: '❌ Не удалось определить ID пользователя для разблокировки.',
             buttons: [{ type: 'ok' }]
         });
         return;
@@ -349,7 +354,7 @@ window.unblockUser = async function(userId, userName) {
     
     tg.showPopup({
         title: 'Разблокировка',
-        message: 'Разблокировать пользователя ' + userName + '?',
+        message: 'Разблокировать пользователя ' + userName + ' (ID: ' + userId + ')?',
         buttons: [
             { type: 'cancel', text: 'Отмена' },
             { type: 'default', text: 'Разблокировать' }
@@ -386,7 +391,6 @@ window.unblockUser = async function(userId, userName) {
     });
 };
 
-// ========== ЗАГРУЗКА ЗАЯВОК СТУДЕНТА ==========
 async function loadUserTickets() {
     const list = document.getElementById('userTicketsList');
     try {
@@ -415,7 +419,6 @@ async function loadUserTickets() {
     }
 }
 
-// ========== УПРАВЛЕНИЕ СТАТУСАМИ ==========
 window.takeTicket = async function(row, btn) {
     btn.disabled = true;
     btn.innerText = "⏳...";
@@ -440,7 +443,6 @@ window.closeTicket = async function(row, btn) {
     }
 };
 
-// ========== ОТПРАВКА ЗАЯВКИ ==========
 window.addEventListener('load', () => {
     const ticketForm = document.getElementById('ticketForm');
     const fileInput = document.getElementById('photo');
