@@ -1,7 +1,7 @@
 // ============================================
 // ИНТЕЛЛЕКТУАЛЬНЫЙ SERVICE DESK
 // Фронтенд для Telegram Mini App
-// Без отображения совета (только категория + приоритет)
+// С фильтрацией по категориям ИИ + Блокировка пользователей
 // ============================================
 
 let tg = window.Telegram.WebApp;
@@ -76,7 +76,7 @@ async function loadTickets() {
   }
 }
 
-// ========== ОТРИСОВКА ЗАЯВОК С УЧЁТОМ ФИЛЬТРА (БЕЗ СОВЕТА) ==========
+// ========== ОТРИСОВКА ЗАЯВОК С УЧЁТОМ ФИЛЬТРА ==========
 function renderTicketsByFilter() {
   const list = document.getElementById('ticketsList');
   
@@ -99,7 +99,9 @@ function renderTicketsByFilter() {
     card.className = 'ticket-card';
     const isProcessing = t.status === "🔧 В работе";
     
-    // Блок ИИ-диагностики ТОЛЬКО с категорией и приоритетом (без совета)
+    // Безопасное экранирование имени пользователя для передачи в функцию
+    const safeUserName = (t.userName || "Пользователь").replace(/'/g, "\\'");
+    
     const aiBlock = `
       <div class="ai-diagnostic">
         <div class="ai-diagnostic-title">🤖 ИИ-диагностика:</div>
@@ -109,7 +111,7 @@ function renderTicketsByFilter() {
     `;
     
     card.innerHTML = `
-      <div><b>ID: ${t.id}</b> | 🚪 Каб: ${t.room}</div>
+      <div><b>ID: ${t.id}</b> | 🚪 Каб: ${t.room} | 👤 ${t.userName || "Неизвестный"}</div>
       <div style="margin: 8px 0; font-size: 15px;">${t.problem}</div>
       ${aiBlock}
       <div class="card-actions">
@@ -118,6 +120,7 @@ function renderTicketsByFilter() {
           ? `<button class="btn-done" onclick="closeTicket(${t.row}, this)">✅ Готово</button>`
           : `<button class="btn-take" onclick="takeTicket(${t.row}, this)">🔧 В работу</button>`
         }
+        <button class="btn-block" onclick="showBlockDialog('${t.userId}', '${safeUserName}')">🚫 Блок</button>
       </div>
     `;
     list.appendChild(card);
@@ -163,6 +166,98 @@ window.filterNetwork = function() {
   currentFilter = 'Сеть';
   renderTicketsByFilter();
   highlightFilter('Сеть');
+};
+
+// ========== БЛОКИРОВКА ПОЛЬЗОВАТЕЛЯ ==========
+window.showBlockDialog = function(userId, userName) {
+  tg.showPopup({
+    title: '🚫 Блокировка пользователя',
+    message: 'Введите причину блокировки для ' + userName + ':',
+    buttons: [
+      { type: 'cancel', text: 'Отмена' },
+      { type: 'default', text: 'Заблокировать' }
+    ]
+  }, function(buttonIndex) {
+    if (buttonIndex === 1) {
+      // Пользователь нажал "Заблокировать"
+      tg.showPopup({
+        title: 'Причина блокировки',
+        message: 'Введите причину:',
+        buttons: [{ type: 'default', text: 'OK' }]
+      });
+      // Запрашиваем причину через стандартный prompt (Telegram WebApp не имеет текстового поля в popup)
+      const reason = prompt("Введите причину блокировки пользователя " + userName + ":", "Спам / Ложные заявки / Оскорбления");
+      if (reason && reason.trim() !== "") {
+        blockUser(userId, userName, reason);
+      } else if (reason !== null) {
+        tg.showPopup({
+          title: 'Ошибка',
+          message: 'Необходимо указать причину блокировки!',
+          buttons: [{ type: 'ok' }]
+        });
+      }
+    }
+  });
+};
+
+async function blockUser(userId, userName, reason) {
+  try {
+    const res = await apiRequest({
+      action: 'block_user',
+      adminId: user.id,
+      targetId: userId,
+      userName: userName,
+      reason: reason,
+      adminName: user?.first_name || "Администратор"
+    });
+    
+    if (res.status === 'success') {
+      tg.showPopup({
+        title: '✅ Заблокирован',
+        message: 'Пользователь ' + userName + ' заблокирован.\nПричина: ' + reason,
+        buttons: [{ type: 'ok' }]
+      });
+      loadTickets(); // Обновляем список
+    } else {
+      throw new Error(res.error);
+    }
+  } catch (error) {
+    tg.showPopup({
+      title: 'Ошибка',
+      message: 'Не удалось заблокировать пользователя',
+      buttons: [{ type: 'ok' }]
+    });
+  }
+}
+
+window.unblockUser = async function(userId, userName) {
+  const confirm = confirm("Разблокировать пользователя " + userName + "?");
+  if (!confirm) return;
+  
+  try {
+    const res = await apiRequest({
+      action: 'unblock_user',
+      adminId: user.id,
+      targetId: userId
+    });
+    
+    if (res.status === 'success') {
+      tg.showPopup({
+        title: '✅ Разблокирован',
+        message: 'Пользователь ' + userName + ' разблокирован.',
+        buttons: [{ type: 'ok' }]
+      });
+      loadTickets();
+    } else {
+      throw new Error(res.error);
+    }
+  } catch (error) {
+    tg.showPopup({
+      title: 'Ошибка',
+      message: 'Не удалось разблокировать пользователя',
+      buttons: [{ type: 'ok' }]
+    });
+  }
 };
 
 // ========== ЗАГРУЗКА ЗАЯВОК СТУДЕНТА ==========
@@ -258,6 +353,14 @@ window.addEventListener('load', () => {
               buttons: [{ type: 'ok' }]
             });
             setTimeout(() => tg.close(), 1500);
+          } else if (result.error) {
+            tg.showPopup({
+              title: '⚠️ Ошибка',
+              message: result.error,
+              buttons: [{ type: 'ok' }]
+            });
+            btn.disabled = false;
+            btn.innerText = "Отправить";
           } else {
             throw new Error('Ошибка сервера');
           }
