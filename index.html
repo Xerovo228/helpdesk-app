@@ -50,14 +50,12 @@
                     📊 Загрузка статистики...
                 </div>
             </div>
-            
-            <!-- ВКЛАДКИ АДМИН-ПАНЕЛИ -->
+
             <div style="display: flex; gap: 5px; margin-bottom: 20px; border-bottom: 1px solid #ddd; flex-wrap: wrap;">
                 <button id="tabTicketsBtn" onclick="showAdminTab('tickets')" class="admin-tab admin-tab-active">📋 Заявки</button>
                 <button id="tabBlockedBtn" onclick="showAdminTab('blocked')" class="admin-tab">🚫 Заблокированные</button>
             </div>
-            
-            <!-- Контент вкладки "Заявки" -->
+
             <div id="ticketsTab" style="display: block;">
                 <div style="display: flex; gap: 10px; margin-bottom: 20px; flex-wrap: wrap; justify-content: center;">
                     <button id="filterAllBtn" onclick="filterAll()" class="filter-btn filter-btn-active">📋 Все</button>
@@ -69,8 +67,7 @@
                     <p style="text-align:center;">🔄 Загрузка списка...</p>
                 </div>
             </div>
-            
-            <!-- Контент вкладки "Заблокированные" -->
+
             <div id="blockedTab" style="display: none;">
                 <div id="blockedList">
                     <p style="text-align:center;">🔄 Загрузка списка заблокированных...</p>
@@ -81,12 +78,17 @@
         <div id="statusMessage" style="text-align: center; margin-top: 10px; font-weight: bold;"></div>
     </div>
 
-    <!-- Модальное окно для ввода причины блокировки -->
+    <!-- Модальное окно с скрытыми полями -->
     <div id="blockModal" style="display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.5); z-index: 1000; align-items: center; justify-content: center;">
         <div style="background: var(--tg-theme-bg-color, white); border-radius: 20px; padding: 20px; width: 80%; max-width: 300px;">
             <h3 style="margin: 0 0 10px 0; color: var(--tg-theme-text-color, #222);">🚫 Блокировка</h3>
             <p id="blockUserName" style="font-size: 14px; color: gray; margin: 5px 0;"></p>
             <textarea id="blockReason" rows="3" placeholder="Введите причину блокировки..." style="width: 100%; padding: 10px; border-radius: 12px; border: 1px solid #ccc; margin: 10px 0; box-sizing: border-box; font-family: inherit; font-size: 14px;"></textarea>
+            
+            <!-- Скрытые поля для хранения данных -->
+            <input type="hidden" id="blockUserId" value="">
+            <input type="hidden" id="blockUserDisplayName" value="">
+            
             <div style="display: flex; gap: 10px;">
                 <button onclick="closeBlockModal()" style="flex: 1; background: gray; color: white; border: none; border-radius: 25px; padding: 10px;">Отмена</button>
                 <button onclick="confirmBlock()" style="flex: 1; background: #dc3545; color: white; border: none; border-radius: 25px; padding: 10px;">Заблокировать</button>
