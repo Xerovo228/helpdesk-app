@@ -145,7 +145,6 @@ input[type="file"] {
     font-size: 14px !important;
 }
 
-/* Кнопка блокировки */
 .btn-block {
     background-color: #dc3545 !important;
     color: white !important;
@@ -187,7 +186,6 @@ input[type="file"] {
     border-left: 5px solid var(--tg-theme-button-color, #2481cc);
 }
 
-/* ========== СТИЛИ ДЛЯ КНОПОК ФИЛЬТРАЦИИ ========== */
 .filter-btn {
     width: auto;
     padding: 10px 20px;
@@ -208,7 +206,6 @@ input[type="file"] {
     color: white !important;
 }
 
-/* ========== БЛОК ИИ-ДИАГНОСТИКИ ========== */
 .ai-diagnostic {
     background: #d4e6f1;
     padding: 10px;
@@ -226,4 +223,10 @@ input[type="file"] {
 
 .ai-diagnostic-text {
     color: #1a365d;
+}
+
+/* Модальное окно */
+#blockModal textarea:focus {
+    outline: none;
+    border-color: #dc3545;
 }
