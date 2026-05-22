@@ -199,7 +199,6 @@ input[type="file"] {
     border-left: 5px solid var(--tg-theme-button-color, #2481cc);
 }
 
-/* Стили для вкладок админ-панели */
 .admin-tab {
     width: auto;
     padding: 10px 20px;
@@ -222,7 +221,6 @@ input[type="file"] {
     transform: scale(0.95);
 }
 
-/* Кнопки фильтрации */
 .filter-btn {
     width: auto;
     padding: 10px 20px;
@@ -243,7 +241,6 @@ input[type="file"] {
     color: white !important;
 }
 
-/* Блок ИИ-диагностики */
 .ai-diagnostic {
     background: #d4e6f1;
     padding: 10px;
@@ -263,7 +260,6 @@ input[type="file"] {
     color: #1a365d;
 }
 
-/* Карточка заблокированного пользователя */
 .blocked-card {
     background: var(--tg-theme-secondary-bg-color, #f9f9f9);
     border-radius: 18px;
@@ -273,7 +269,6 @@ input[type="file"] {
     border-left: 4px solid #dc3545;
 }
 
-/* Модальное окно */
 #blockModal textarea:focus {
     outline: none;
     border-color: #dc3545;
