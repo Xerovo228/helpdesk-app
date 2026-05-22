@@ -1,6 +1,7 @@
 // ============================================
 // ИНТЕЛЛЕКТУАЛЬНЫЙ SERVICE DESK
 // Фронтенд для Telegram Mini App
+// С фильтрацией по категориям ИИ
 // ============================================
 
 let tg = window.Telegram.WebApp;
@@ -9,6 +10,8 @@ tg.expand();
 const GOOGLE_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbztD215U09edQ837xmYPzcCWxQTz7e7K2FIgs97e7vNbNDiTowqbzYrs9soVOWB5ApIlw/exec";
 
 let currentRole = 'student';
+let currentFilter = 'all';
+let allTicketsData = [];
 let user = tg.initDataUnsafe?.user;
 
 async function apiRequest(payload) {
@@ -46,7 +49,7 @@ function showView(view) {
   if (view === 'student') loadUserTickets();
 }
 
-// ========== ЗАГРУЗКА ЗАЯВОК ДЛЯ АДМИНА (С ИИ-СОВЕТАМИ) ==========
+// ========== ЗАГРУЗКА ЗАЯВОК ДЛЯ АДМИНА ==========
 async function loadTickets() {
   const list = document.getElementById('ticketsList');
   const stats = document.getElementById('adminStats');
@@ -54,51 +57,114 @@ async function loadTickets() {
 
   try {
     const res = await apiRequest({ action: "get_tickets" });
-    list.innerHTML = "";
-    stats.innerHTML = `📝 Всего: <b>${res.totalCount || 0}</b> | ✅ Готово: <b>${res.completedCount || 0}</b>`;
-
-    if (!res.tickets || res.tickets.length === 0) {
-      list.innerHTML = "<p style='text-align:center; padding: 20px;'>🎉 Нет активных заявок</p>";
-      return;
-    }
-
-    const categoryEmoji = { "IT": "💻", "АХЧ": "🔧", "Сеть": "🌐" };
-    const priorityText = { "high": "🔥 Высокий", "medium": "⚠️ Средний", "low": "📌 Низкий" };
-
-    res.tickets.forEach(t => {
-      const card = document.createElement('div');
-      card.className = 'ticket-card';
-      const isProcessing = t.status === "🔧 В работе";
-
-      // Блок с ИИ-советом
-      const aiBlock = `
-        <div style="background: #eef2ff; padding: 10px; border-radius: 12px; margin: 10px 0;">
-          <div style="font-size: 12px; color: #4a5568; margin-bottom: 5px;">🤖 ИИ-диагностика:</div>
-          <div>📁 Категория: ${categoryEmoji[t.aiCategory] || '📁'} ${t.aiCategory || 'IT'}</div>
-          <div>⚡ Приоритет: ${priorityText[t.aiPriority] || '⚠️ Средний'}</div>
-          <div style="margin-top: 5px;">💡 Совет: <i>${t.aiAdvice || 'Нет данных'}</i></div>
-        </div>
-      `;
-
-      card.innerHTML = `
-        <div><b>ID: ${t.id}</b> | 🚪 Каб: ${t.room}</div>
-        <div style="margin: 8px 0; font-size: 15px;">${t.problem}</div>
-        ${aiBlock}
-        <div class="card-actions">
-          ${t.photoUrl !== "❌ Нет фото" ? `<a href="${t.photoUrl}" target="_blank" class="btn-view">📸 Фото</a>` : '<span class="btn-view" style="opacity:0.5;">📷 Нет фото</span>'}
-          ${isProcessing
-            ? `<button class="btn-done" onclick="closeTicket(${t.row}, this)">✅ Готово</button>`
-            : `<button class="btn-take" onclick="takeTicket(${t.row}, this)">🔧 В работу</button>`
-          }
-        </div>
-      `;
-      list.appendChild(card);
+    allTicketsData = res.tickets || [];
+    
+    // Подсчёт статистики по категориям
+    let itCount = 0, ahchCount = 0, networkCount = 0;
+    allTicketsData.forEach(t => {
+      if (t.aiCategory === 'IT') itCount++;
+      else if (t.aiCategory === 'АХЧ') ahchCount++;
+      else if (t.aiCategory === 'Сеть') networkCount++;
     });
+    
+    stats.innerHTML = `📝 Всего: <b>${allTicketsData.length}</b> | 💻 IT: <b>${itCount}</b> | 🔧 АХЧ: <b>${ahchCount}</b> | 🌐 Сеть: <b>${networkCount}</b>`;
+    
+    renderTicketsByFilter();
+    
   } catch (e) {
     stats.innerHTML = "❌ Ошибка связи";
     console.error(e);
   }
 }
+
+// ========== ОТРИСОВКА ЗАЯВОК С УЧЁТОМ ФИЛЬТРА ==========
+function renderTicketsByFilter() {
+  const list = document.getElementById('ticketsList');
+  
+  let filteredTickets = allTicketsData;
+  if (currentFilter !== 'all') {
+    filteredTickets = allTicketsData.filter(t => t.aiCategory === currentFilter);
+  }
+  
+  if (filteredTickets.length === 0) {
+    list.innerHTML = `<p style='text-align:center; padding: 20px;'>📭 Нет заявок в категории "${currentFilter === 'all' ? 'всех' : currentFilter}"</p>`;
+    return;
+  }
+  
+  list.innerHTML = "";
+  const categoryEmoji = { "IT": "💻", "АХЧ": "🔧", "Сеть": "🌐" };
+  const priorityText = { "high": "🔥 Высокий", "medium": "⚠️ Средний", "low": "📌 Низкий" };
+  
+  filteredTickets.forEach(t => {
+    const card = document.createElement('div');
+    card.className = 'ticket-card';
+    const isProcessing = t.status === "🔧 В работе";
+    
+    const aiBlock = `
+      <div style="background: #eef2ff; padding: 10px; border-radius: 12px; margin: 10px 0;">
+        <div style="font-size: 12px; color: #4a5568; margin-bottom: 5px;">🤖 ИИ-диагностика:</div>
+        <div>📁 Категория: ${categoryEmoji[t.aiCategory] || '📁'} ${t.aiCategory || 'IT'}</div>
+        <div>⚡ Приоритет: ${priorityText[t.aiPriority] || '⚠️ Средний'}</div>
+        <div style="margin-top: 5px;">💡 Совет: <i>${t.aiAdvice || 'Нет данных'}</i></div>
+      </div>
+    `;
+    
+    card.innerHTML = `
+      <div><b>ID: ${t.id}</b> | 🚪 Каб: ${t.room}</div>
+      <div style="margin: 8px 0; font-size: 15px;">${t.problem}</div>
+      ${aiBlock}
+      <div class="card-actions">
+        ${t.photoUrl !== "❌ Нет фото" && t.photoUrl !== "No photo" ? `<a href="${t.photoUrl}" target="_blank" class="btn-view">📸 Фото</a>` : '<span class="btn-view" style="opacity:0.5;">📷 Нет фото</span>'}
+        ${isProcessing
+          ? `<button class="btn-done" onclick="closeTicket(${t.row}, this)">✅ Готово</button>`
+          : `<button class="btn-take" onclick="takeTicket(${t.row}, this)">🔧 В работу</button>`
+        }
+      </div>
+    `;
+    list.appendChild(card);
+  });
+}
+
+// ========== ФИЛЬТРАЦИЯ ПО КАТЕГОРИЯМ ==========
+function highlightFilter(activeFilter) {
+  const buttons = ['filterAllBtn', 'filterITBtn', 'filterAHCHBtn', 'filterNetworkBtn'];
+  buttons.forEach(id => {
+    const btn = document.getElementById(id);
+    if (btn) btn.classList.remove('filter-btn-active');
+  });
+  
+  let activeId = 'filterAllBtn';
+  if (activeFilter === 'IT') activeId = 'filterITBtn';
+  else if (activeFilter === 'АХЧ') activeId = 'filterAHCHBtn';
+  else if (activeFilter === 'Сеть') activeId = 'filterNetworkBtn';
+  
+  const activeBtn = document.getElementById(activeId);
+  if (activeBtn) activeBtn.classList.add('filter-btn-active');
+}
+
+window.filterAll = function() {
+  currentFilter = 'all';
+  renderTicketsByFilter();
+  highlightFilter('all');
+};
+
+window.filterIT = function() {
+  currentFilter = 'IT';
+  renderTicketsByFilter();
+  highlightFilter('IT');
+};
+
+window.filterAHCH = function() {
+  currentFilter = 'АХЧ';
+  renderTicketsByFilter();
+  highlightFilter('АХЧ');
+};
+
+window.filterNetwork = function() {
+  currentFilter = 'Сеть';
+  renderTicketsByFilter();
+  highlightFilter('Сеть');
+};
 
 // ========== ЗАГРУЗКА ЗАЯВОК СТУДЕНТА ==========
 async function loadUserTickets() {
