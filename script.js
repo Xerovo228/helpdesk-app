@@ -182,9 +182,14 @@ async function loadBlockedUsers() {
         res.blockedUsers.forEach(blocked => {
             const card = document.createElement('div');
             card.className = 'blocked-card';
+            // Форматируем дату из ISO в читаемый вид
+            let formattedDate = blocked.date || "Дата не указана";
+            if (formattedDate && formattedDate.includes('T')) {
+                formattedDate = formattedDate.replace('T', ' ').substring(0, 16);
+            }
             card.innerHTML = `
                 <div><b>👤 ${blocked.userName || "Неизвестный"}</b> | 🆔 ${blocked.telegramId}</div>
-                <div style="margin: 8px 0; font-size: 13px; color: #666;">📅 Заблокирован: ${blocked.date || "Дата не указана"}</div>
+                <div style="margin: 8px 0; font-size: 13px; color: #666;">📅 Заблокирован: ${formattedDate}</div>
                 <div style="margin: 8px 0; font-size: 13px; background: #f8d7da; padding: 8px; border-radius: 10px;">
                     📝 <b>Причина:</b> ${blocked.reason || "Не указана"}
                 </div>
