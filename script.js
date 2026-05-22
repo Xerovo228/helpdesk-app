@@ -59,7 +59,6 @@ async function loadTickets() {
     const res = await apiRequest({ action: "get_tickets" });
     allTicketsData = res.tickets || [];
     
-    // Подсчёт статистики по категориям
     let itCount = 0, ahchCount = 0, networkCount = 0;
     allTicketsData.forEach(t => {
       if (t.aiCategory === 'IT') itCount++;
@@ -100,12 +99,13 @@ function renderTicketsByFilter() {
     card.className = 'ticket-card';
     const isProcessing = t.status === "🔧 В работе";
     
+    // Блок ИИ-диагностики с использованием CSS-классов
     const aiBlock = `
-      <div style="background: #eef2ff; padding: 10px; border-radius: 12px; margin: 10px 0;">
-        <div style="font-size: 12px; color: #4a5568; margin-bottom: 5px;">🤖 ИИ-диагностика:</div>
-        <div>📁 Категория: ${categoryEmoji[t.aiCategory] || '📁'} ${t.aiCategory || 'IT'}</div>
-        <div>⚡ Приоритет: ${priorityText[t.aiPriority] || '⚠️ Средний'}</div>
-        <div style="margin-top: 5px;">💡 Совет: <i>${t.aiAdvice || 'Нет данных'}</i></div>
+      <div class="ai-diagnostic">
+        <div class="ai-diagnostic-title">🤖 ИИ-диагностика:</div>
+        <div class="ai-diagnostic-text">📁 Категория: ${categoryEmoji[t.aiCategory] || '📁'} ${t.aiCategory || 'IT'}</div>
+        <div class="ai-diagnostic-text">⚡ Приоритет: ${priorityText[t.aiPriority] || '⚠️ Средний'}</div>
+        <div class="ai-diagnostic-text" style="margin-top: 5px;">💡 Совет: <i>${t.aiAdvice || 'Нет данных'}</i></div>
       </div>
     `;
     
