@@ -50,6 +50,15 @@
                     📊 Загрузка статистики...
                 </div>
             </div>
+            
+            <!-- ========== НОВЫЕ КНОПКИ ФИЛЬТРАЦИИ ПО КАТЕГОРИЯМ ========== -->
+            <div style="display: flex; gap: 10px; margin-bottom: 20px; flex-wrap: wrap; justify-content: center;">
+                <button id="filterAllBtn" onclick="filterAll()" class="filter-btn filter-btn-active">📋 Все</button>
+                <button id="filterITBtn" onclick="filterIT()" class="filter-btn">💻 IT</button>
+                <button id="filterAHCHBtn" onclick="filterAHCH()" class="filter-btn">🔧 АХЧ</button>
+                <button id="filterNetworkBtn" onclick="filterNetwork()" class="filter-btn">🌐 Сеть</button>
+            </div>
+            
             <div id="ticketsList">
                 <p style="text-align:center;">🔄 Загрузка списка...</p>
             </div>
