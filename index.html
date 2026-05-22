@@ -51,15 +51,30 @@
                 </div>
             </div>
             
-            <div style="display: flex; gap: 10px; margin-bottom: 20px; flex-wrap: wrap; justify-content: center;">
-                <button id="filterAllBtn" onclick="filterAll()" class="filter-btn filter-btn-active">📋 Все</button>
-                <button id="filterITBtn" onclick="filterIT()" class="filter-btn">💻 IT</button>
-                <button id="filterAHCHBtn" onclick="filterAHCH()" class="filter-btn">🔧 АХЧ</button>
-                <button id="filterNetworkBtn" onclick="filterNetwork()" class="filter-btn">🌐 Сеть</button>
+            <!-- ВКЛАДКИ АДМИН-ПАНЕЛИ -->
+            <div style="display: flex; gap: 5px; margin-bottom: 20px; border-bottom: 1px solid #ddd; flex-wrap: wrap;">
+                <button id="tabTicketsBtn" onclick="showAdminTab('tickets')" class="admin-tab admin-tab-active">📋 Заявки</button>
+                <button id="tabBlockedBtn" onclick="showAdminTab('blocked')" class="admin-tab">🚫 Заблокированные</button>
             </div>
             
-            <div id="ticketsList">
-                <p style="text-align:center;">🔄 Загрузка списка...</p>
+            <!-- Контент вкладки "Заявки" -->
+            <div id="ticketsTab" style="display: block;">
+                <div style="display: flex; gap: 10px; margin-bottom: 20px; flex-wrap: wrap; justify-content: center;">
+                    <button id="filterAllBtn" onclick="filterAll()" class="filter-btn filter-btn-active">📋 Все</button>
+                    <button id="filterITBtn" onclick="filterIT()" class="filter-btn">💻 IT</button>
+                    <button id="filterAHCHBtn" onclick="filterAHCH()" class="filter-btn">🔧 АХЧ</button>
+                    <button id="filterNetworkBtn" onclick="filterNetwork()" class="filter-btn">🌐 Сеть</button>
+                </div>
+                <div id="ticketsList">
+                    <p style="text-align:center;">🔄 Загрузка списка...</p>
+                </div>
+            </div>
+            
+            <!-- Контент вкладки "Заблокированные" -->
+            <div id="blockedTab" style="display: none;">
+                <div id="blockedList">
+                    <p style="text-align:center;">🔄 Загрузка списка заблокированных...</p>
+                </div>
             </div>
         </div>
 
