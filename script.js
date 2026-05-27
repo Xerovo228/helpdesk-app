@@ -158,6 +158,7 @@ function renderTicketsByFilter() {
     });
 }
 
+// ========== ОБНОВЛЕННАЯ ФУНКЦИЯ: ТЕПЕРЬ БЕЗ СТРЁМНОГО РОЗОВОГО ФОНА ==========
 async function loadBlockedUsers() {
     const list = document.getElementById('blockedList');
     if (!list) return;
@@ -184,11 +185,13 @@ async function loadBlockedUsers() {
             }
             card.innerHTML = `
                 <div><b>👤 ${blocked.userName || "Неизвестный"}</b> | 🆔 ${blocked.telegramId || "?"}</div>
-                <div style="margin: 8px 0; font-size: 13px; color: #666;">📅 Заблокирован: ${formattedDate}</div>
-                <div style="margin: 8px 0; font-size: 13px; background: #f8d7da; padding: 8px; border-radius: 10px;">
-                    📝 <b>Причина:</b> ${blocked.reason || "Не указана"}
+                <div style="margin: 4px 0 8px 0; font-size: 13px; color: #888;">📅 Заблокирован: ${formattedDate}</div>
+                
+                <div style="margin: 8px 0; font-size: 14px; color: var(--tg-theme-text-color, #222); background: var(--tg-theme-secondary-bg-color, #f4f4f5); padding: 10px 14px; border-radius: 12px; border: 1px solid rgba(0, 0, 0, 0.08); word-break: break-word;">
+                    <span style="color: #e53935; font-weight: bold;">🚫 Причина:</span> ${blocked.reason || "Не указана"}
                 </div>
-                <div style="margin: 8px 0; font-size: 12px; color: #666;">👮 Заблокировал: ${blocked.blockedBy || "Администратор"}</div>
+                
+                <div style="margin: 8px 0 4px 0; font-size: 12px; color: #888;">👮 Заблокировал: ${blocked.blockedBy || "Администратор"}</div>
                 <div class="card-actions">
                     ${hasValidId
                         ? `<button class="btn-unblock" onclick="unblockUser('${blocked.telegramId}', '${blocked.userName.replace(/'/g, "\\'")}')">🔓 Разблокировать</button>`
@@ -312,7 +315,6 @@ window.confirmBlock = async function() {
                 message: 'Пользователь ' + targetName + ' (ID: ' + targetId + ') заблокирован.',
                 buttons: [{ type: 'ok' }]
             });
-            // Мгновенно перезагружаем все списки, чтобы убрать карточки или обновить состояние
             loadTickets();
             loadBlockedUsers();
         } else {
@@ -328,7 +330,7 @@ window.confirmBlock = async function() {
     }
 };
 
-// ========== ИСПРАВЛЕННАЯ РАЗБЛОКИРОВКА (С КОРРЕКТНЫМИ СВОЙСТВАМИ TG POPUP) ==========
+// ========== РАЗБЛОКИРОВКА ==========
 window.unblockUser = async function(userId, userName) {
     if (!userId || userId === "" || userId === "?" || userId === "null" || userId === "undefined") {
         tg.showPopup({
@@ -347,7 +349,6 @@ window.unblockUser = async function(userId, userName) {
             { id: 'ok', type: 'default', text: 'Разблокировать' }
         ]
     }, async function(buttonId) {
-        // Проверяем текстовый ID нажатой кнопки, а не числовой индекс!
         if (buttonId === 'ok') {
             try {
                 const res = await apiRequest({
@@ -362,7 +363,6 @@ window.unblockUser = async function(userId, userName) {
                         message: 'Пользователь ' + userName + ' успешно разблокирован.',
                         buttons: [{ type: 'ok' }]
                     });
-                    // Мгновенно обновляем интерфейс, чтобы юзер исчез из списков заблокированных
                     loadTickets();
                     loadBlockedUsers();
                 } else {
