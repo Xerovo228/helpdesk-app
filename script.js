@@ -7,7 +7,7 @@ let tg = window.Telegram.WebApp;
 tg.expand();
 tg.BackButton.hide();
 
-const GOOGLE_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbyfuDe3ApFOapPDND47Yqx_zEH3whQmQj6CC7aBhLJcuOon1clcJc3p04aJzTIwtfboaA/exec";
+const GOOGLE_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbyU8DVdEwn8SJgTZAuvQYXlOGIU33m_USu7R2EiS9wPh2ygPlqL9K1x-M3YxpcQM6MuyA/exec";
 
 let currentRole = 'student';
 let currentFilter = 'all';
