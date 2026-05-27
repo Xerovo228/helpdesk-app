@@ -1,10 +1,11 @@
 // ============================================
 // ИНТЕЛЛЕКТУАЛЬНЫЙ SERVICE DESK
-// Telegram Mini App + ИИ + Блокировка + Вкладки
+// Telegram Mini App + ИИ + Верификация телефона
 // ============================================
 
 let tg = window.Telegram.WebApp;
 tg.expand();
+tg.BackButton.hide();
 
 const GOOGLE_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbwlgsbK_oSvbacjl0-UJux_hYy_pmGI0zZhhxCWSMskw9NHzzfql_kG7GHHhmd9nJDKLQ/exec";
 
@@ -14,45 +15,155 @@ let allTicketsData = [];
 let user = tg.initDataUnsafe?.user;
 let currentAdminTab = 'tickets';
 
+// ========== ВСПОМОГАТЕЛЬНЫЕ ФУНКЦИИ ==========
 async function apiRequest(payload) {
-    const response = await fetch(GOOGLE_SCRIPT_URL, {
-        method: 'POST',
-        headers: { 'Content-Type': 'text/plain;charset=utf-8' },
-        body: JSON.stringify(payload)
-    });
-    return await response.json();
+    try {
+        const response = await fetch(GOOGLE_SCRIPT_URL, {
+            method: 'POST',
+            headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+            body: JSON.stringify(payload)
+        });
+        return await response.json();
+    } catch (e) {
+        console.error("API Error:", e);
+        return { status: 'error', error: e.message };
+    }
 }
 
+function showMessage(title, message) {
+    if (tg.showPopup) {
+        tg.showPopup({ title: title, message: message, buttons: [{ type: 'ok' }] });
+    } else {
+        alert(title + "\n" + message);
+    }
+}
+
+// ========== ЗАПРОС ТЕЛЕФОНА ЧЕРЕЗ TELEGRAM ==========
+window.requestPhone = function() {
+    tg.requestContact(async function(authData) {
+        if (authData && authData.status === 'sent' && authData.response) {
+            const btn = document.getElementById('authBtn');
+            if (btn) {
+                btn.disabled = true;
+                btn.innerText = "⏳ Сохранение номера...";
+            }
+            
+            const phoneNumber = authData.contact?.phone_number || "";
+            await sendPhoneToServer(phoneNumber);
+        } else {
+            showMessage('⚠️ Авторизация отклонена', 'Чтобы продолжить, необходимо разрешить доступ к номеру телефона.');
+        }
+    });
+};
+
+// ========== ОТПРАВКА ТЕЛЕФОНА НА СЕРВЕР ==========
+async function sendPhoneToServer(phoneNumber) {
+    try {
+        const result = await apiRequest({
+            action: "save_phone",
+            telegramId: user ? user.id : 0,
+            phone: phoneNumber
+        });
+        
+        if (result.status === 'success') {
+            showMessage('🎉 Успешно!', 'Номер телефона подтвержден. Теперь вы можете создавать заявки!');
+            checkRole(); // Перепроверяем роль после сохранения телефона
+        } else {
+            throw new Error(result.error || "Ошибка сохранения");
+        }
+    } catch (error) {
+        console.error('Save phone error:', error);
+        showMessage('❌ Ошибка сервера', 'Не удалось привязать телефон. Попробуйте еще раз.');
+        
+        const btn = document.getElementById('authBtn');
+        if (btn) {
+            btn.disabled = false;
+            btn.innerText = "📱 Предоставить номер телефона";
+        }
+    }
+}
+
+// ========== ПРОВЕРКА РОЛИ ПОЛЬЗОВАТЕЛЯ ==========
 async function checkRole() {
     try {
-        const res = await apiRequest({ action: "check_role", telegramId: user ? user.id : 0 });
+        const res = await apiRequest({ 
+            action: "check_role", 
+            telegramId: user ? user.id : 0 
+        });
+        
+        console.log("checkRole response:", res);
+        
+        // Проверка на блокировку
+        if (res.role === 'blocked') {
+            showView('blocked_screen');
+            return;
+        }
+        
+        // Проверка на неподтвержденный телефон
+        if (res.role === 'unauthenticated') {
+            showView('auth_screen');
+            return;
+        }
+        
+        // Администратор
         if (res.role === 'admin') {
             document.getElementById('roleSwitcher').style.display = 'block';
             showView('admin');
             loadBlockedUsers();
-        } else {
-            showView('student');
+            return;
         }
+        
+        // Обычный студент с подтвержденным телефоном
+        if (res.role === 'student') {
+            showView('student');
+            loadUserTickets();
+            return;
+        }
+        
+        // Fallback
+        showView('student');
+        
     } catch (e) {
+        console.error("CheckRole error:", e);
         showView('student');
     }
 }
 
+// ========== ПЕРЕКЛЮЧЕНИЕ РОЛЕЙ (ДЛЯ ОТЛАДКИ) ==========
 window.toggleRole = function() {
-    showView(currentRole === 'admin' ? 'student' : 'admin');
+    if (currentRole === 'admin') {
+        showView('student');
+    } else if (currentRole === 'student') {
+        showView('admin');
+        loadTickets();
+        loadBlockedUsers();
+    }
 };
 
+// ========== УПРАВЛЕНИЕ ЭКРАНАМИ ==========
 function showView(view) {
     currentRole = view;
-    document.getElementById('studentView').style.display = view === 'student' ? 'block' : 'none';
-    document.getElementById('adminView').style.display = view === 'admin' ? 'block' : 'none';
+    
+    const studentView = document.getElementById('studentView');
+    const adminView = document.getElementById('adminView');
+    const authScreen = document.getElementById('authScreen');
+    const blockedScreen = document.getElementById('blockedScreen');
+    
+    if (studentView) studentView.style.display = view === 'student' ? 'block' : 'none';
+    if (adminView) adminView.style.display = view === 'admin' ? 'block' : 'none';
+    if (authScreen) authScreen.style.display = view === 'auth_screen' ? 'block' : 'none';
+    if (blockedScreen) blockedScreen.style.display = view === 'blocked_screen' ? 'block' : 'none';
+    
     if (view === 'admin') {
         loadTickets();
         loadBlockedUsers();
     }
-    if (view === 'student') loadUserTickets();
+    if (view === 'student') {
+        loadUserTickets();
+    }
 }
 
+// ========== ВКЛАДКИ АДМИНА ==========
 window.showAdminTab = function(tab) {
     currentAdminTab = tab;
     
@@ -76,15 +187,19 @@ window.showAdminTab = function(tab) {
     }
 };
 
+// ========== ЗАГРУЗКА ВСЕХ ЗАЯВОК (АДМИН) ==========
 async function loadTickets() {
     const list = document.getElementById('ticketsList');
     const stats = document.getElementById('adminStats');
-    list.innerHTML = "<p style='text-align:center;'>🔄 Обновление...</p>";
-
+    if (!list) return;
+    
+    list.innerHTML = "<p style='text-align:center;'>🔄 Загрузка заявок...</p>";
+    
     try {
         const res = await apiRequest({ action: "get_tickets" });
         allTicketsData = res.tickets || [];
         
+        // Подсчет статистики
         let itCount = 0, ahchCount = 0, networkCount = 0;
         allTicketsData.forEach(t => {
             if (t.aiCategory === 'IT') itCount++;
@@ -92,20 +207,24 @@ async function loadTickets() {
             else if (t.aiCategory === 'Сеть') networkCount++;
         });
         
-        stats.innerHTML = `📝 Всего: <b>${allTicketsData.length}</b> | 💻 IT: <b>${itCount}</b> | 🔧 АХЧ: <b>${ahchCount}</b> | 🌐 Сеть: <b>${networkCount}</b>`;
+        if (stats) {
+            stats.innerHTML = `📝 Всего: <b>${allTicketsData.length}</b> | 💻 IT: <b>${itCount}</b> | 🔧 АХЧ: <b>${ahchCount}</b> | 🌐 Сеть: <b>${networkCount}</b>`;
+        }
         
         if (currentAdminTab === 'tickets') {
             renderTicketsByFilter();
         }
-        
     } catch (e) {
-        stats.innerHTML = "❌ Ошибка связи";
-        console.error(e);
+        console.error("Load tickets error:", e);
+        if (stats) stats.innerHTML = "❌ Ошибка загрузки";
+        list.innerHTML = "<p style='text-align:center; color: red;'>❌ Ошибка загрузки заявок</p>";
     }
 }
 
+// ========== ОТОБРАЖЕНИЕ ЗАЯВОК С ФИЛЬТРАЦИЕЙ ==========
 function renderTicketsByFilter() {
     const list = document.getElementById('ticketsList');
+    if (!list) return;
     
     let filteredTickets = allTicketsData;
     if (currentFilter !== 'all') {
@@ -132,25 +251,27 @@ function renderTicketsByFilter() {
         
         const aiBlock = `
             <div class="ai-diagnostic">
-                <div class="ai-diagnostic-title">🤖 ИИ-диагностика:</div>
+                <div class="ai-diagnostic-title">🤖 ИИ-диагностика (Gemini):</div>
                 <div class="ai-diagnostic-text">📁 Категория: ${categoryEmoji[t.aiCategory] || '📁'} ${t.aiCategory || 'IT'}</div>
                 <div class="ai-diagnostic-text">⚡ Приоритет: ${priorityText[t.aiPriority] || '⚠️ Средний'}</div>
             </div>
         `;
         
         card.innerHTML = `
-            <div><b>ID: ${t.id}</b> | 🚪 Каб: ${t.room} | 👤 ${t.userName || "Неизвестный"} (ID: ${safeUserId || "?"})</div>
-            <div style="margin: 8px 0; font-size: 15px;">${t.problem}</div>
+            <div><b>ID: ${t.id}</b> | 🚪 Каб: ${t.room} | 👤 ${t.userName || "Неизвестный"}</div>
+            <div style="margin: 8px 0; font-size: 15px;">${escapeHtml(t.problem)}</div>
             ${aiBlock}
             <div class="card-actions">
-                ${t.photoUrl !== "❌ Нет фото" && t.photoUrl !== "No photo" ? `<a href="${t.photoUrl}" target="_blank" class="btn-view">📸 Фото</a>` : '<span class="btn-view" style="opacity:0.5;">📷 Нет фото</span>'}
+                ${t.photoUrl && t.photoUrl !== "❌ Нет фото" && t.photoUrl !== "Нет фото" ? 
+                    `<a href="${t.photoUrl}" target="_blank" class="btn-view">📸 Фото</a>` : 
+                    '<span class="btn-view" style="opacity:0.5;">📷 Нет фото</span>'}
                 ${isProcessing
                     ? `<button class="btn-done" onclick="closeTicket(${t.row}, this)">✅ Готово</button>`
                     : `<button class="btn-take" onclick="takeTicket(${t.row}, this)">🔧 В работу</button>`
                 }
                 ${hasValidUserId 
                     ? `<button class="btn-block" onclick="showBlockDialog('${safeUserId}', '${safeUserName}')">🚫 Блок</button>`
-                    : `<button class="btn-block" style="background: #6c757d !important; cursor: not-allowed;" disabled title="ID пользователя не найден">🚫 Блок (нет ID)</button>`
+                    : `<button class="btn-block" style="background: #6c757d !important; cursor: not-allowed;" disabled>🚫 Блок (нет ID)</button>`
                 }
             </div>
         `;
@@ -158,7 +279,7 @@ function renderTicketsByFilter() {
     });
 }
 
-// ========== ОБНОВЛЕННАЯ ФУНКЦИЯ: ТЕПЕРЬ БЕЗ СТРЁМНОГО РОЗОВОГО ФОНА ==========
+// ========== ЗАГРУЗКА ЗАБЛОКИРОВАННЫХ ПОЛЬЗОВАТЕЛЕЙ ==========
 async function loadBlockedUsers() {
     const list = document.getElementById('blockedList');
     if (!list) return;
@@ -166,7 +287,10 @@ async function loadBlockedUsers() {
     list.innerHTML = "<p style='text-align:center;'>🔄 Загрузка списка заблокированных...</p>";
     
     try {
-        const res = await apiRequest({ action: 'get_blocked_users', adminId: user ? user.id : 0 });
+        const res = await apiRequest({ 
+            action: 'get_blocked_users', 
+            adminId: user ? user.id : 0 
+        });
         
         if (res.status !== 'success' || !res.blockedUsers || res.blockedUsers.length === 0) {
             list.innerHTML = "<p style='text-align:center; padding: 20px;'>🚫 Нет заблокированных пользователей</p>";
@@ -179,35 +303,35 @@ async function loadBlockedUsers() {
             const hasValidId = blocked.telegramId && blocked.telegramId !== "" && blocked.telegramId !== "null";
             const card = document.createElement('div');
             card.className = 'blocked-card';
+            
             let formattedDate = blocked.date || "Дата не указана";
             if (formattedDate && formattedDate.includes('T')) {
                 formattedDate = formattedDate.replace('T', ' ').substring(0, 16);
             }
+            
             card.innerHTML = `
-                <div><b>👤 ${blocked.userName || "Неизвестный"}</b> | 🆔 ${blocked.telegramId || "?"}</div>
+                <div><b>👤 ${escapeHtml(blocked.userName || "Неизвестный")}</b> | 🆔 ${escapeHtml(blocked.telegramId || "?")}</div>
                 <div style="margin: 4px 0 8px 0; font-size: 13px; color: #888;">📅 Заблокирован: ${formattedDate}</div>
-                
-                <div style="margin: 8px 0; font-size: 14px; color: var(--tg-theme-text-color, #222); background: var(--tg-theme-secondary-bg-color, #f4f4f5); padding: 10px 14px; border-radius: 12px; border: 1px solid rgba(0, 0, 0, 0.08); word-break: break-word;">
-                    <span style="color: #e53935; font-weight: bold;">🚫 Причина:</span> ${blocked.reason || "Не указана"}
+                <div style="margin: 8px 0; padding: 10px; background: var(--tg-theme-secondary-bg-color, #f4f4f5); border-radius: 12px;">
+                    <span style="color: #e53935; font-weight: bold;">🚫 Причина:</span> ${escapeHtml(blocked.reason || "Не указана")}
                 </div>
-                
-                <div style="margin: 8px 0 4px 0; font-size: 12px; color: #888;">👮 Заблокировал: ${blocked.blockedBy || "Администратор"}</div>
+                <div style="margin: 8px 0 4px 0; font-size: 12px; color: #888;">👮 Заблокировал: ${escapeHtml(blocked.blockedBy || "Администратор")}</div>
                 <div class="card-actions">
                     ${hasValidId
-                        ? `<button class="btn-unblock" onclick="unblockUser('${blocked.telegramId}', '${blocked.userName.replace(/'/g, "\\'")}')">🔓 Разблокировать</button>`
+                        ? `<button class="btn-unblock" onclick="unblockUser('${blocked.telegramId}', '${escapeHtml(blocked.userName || "Пользователь").replace(/'/g, "\\'")}')">🔓 Разблокировать</button>`
                         : `<button class="btn-unblock" style="background: #6c757d !important; cursor: not-allowed;" disabled>🔓 Разблокировать (нет ID)</button>`
                     }
                 </div>
             `;
             list.appendChild(card);
         });
-        
     } catch (e) {
+        console.error("Load blocked users error:", e);
         list.innerHTML = "❌ Ошибка загрузки списка";
-        console.error(e);
     }
 }
 
+// ========== ФИЛЬТРАЦИЯ ==========
 function highlightFilter(activeFilter) {
     const buttons = ['filterAllBtn', 'filterITBtn', 'filterAHCHBtn', 'filterNetworkBtn'];
     buttons.forEach(id => {
@@ -224,47 +348,21 @@ function highlightFilter(activeFilter) {
     if (activeBtn) activeBtn.classList.add('filter-btn-active');
 }
 
-window.filterAll = function() {
-    currentFilter = 'all';
-    renderTicketsByFilter();
-    highlightFilter('all');
-};
+window.filterAll = function() { currentFilter = 'all'; renderTicketsByFilter(); highlightFilter('all'); };
+window.filterIT = function() { currentFilter = 'IT'; renderTicketsByFilter(); highlightFilter('IT'); };
+window.filterAHCH = function() { currentFilter = 'АХЧ'; renderTicketsByFilter(); highlightFilter('АХЧ'); };
+window.filterNetwork = function() { currentFilter = 'Сеть'; renderTicketsByFilter(); highlightFilter('Сеть'); };
 
-window.filterIT = function() {
-    currentFilter = 'IT';
-    renderTicketsByFilter();
-    highlightFilter('IT');
-};
-
-window.filterAHCH = function() {
-    currentFilter = 'АХЧ';
-    renderTicketsByFilter();
-    highlightFilter('АХЧ');
-};
-
-window.filterNetwork = function() {
-    currentFilter = 'Сеть';
-    renderTicketsByFilter();
-    highlightFilter('Сеть');
-};
-
-// ========== БЛОКИРОВКА: РАБОТА С МОДАЛЬНЫМ ОКНОМ ==========
+// ========== БЛОКИРОВКА ПОЛЬЗОВАТЕЛЯ ==========
 window.showBlockDialog = function(userId, userName) {
     if (!userId || userId === "" || userId === "?" || userId === "null" || userId === "undefined") {
-        tg.showPopup({
-            title: 'Ошибка',
-            message: '❌ Не удалось определить ID пользователя.\n\nПроверьте, что в таблице Tickets колонка C заполнена.',
-            buttons: [{ type: 'ok' }]
-        });
+        showMessage('Ошибка', '❌ Не удалось определить ID пользователя.');
         return;
     }
     
     document.getElementById('blockUserId').value = String(userId).trim();
     document.getElementById('blockUserDisplayName').value = userName || "Пользователь";
-    
-    const userNameSpan = document.getElementById('blockUserName');
-    userNameSpan.innerText = 'Пользователь: ' + userName + ' (ID: ' + userId + ')';
-    
+    document.getElementById('blockUserName').innerText = 'Пользователь: ' + userName + ' (ID: ' + userId + ')';
     document.getElementById('blockReason').value = '';
     document.getElementById('blockModal').style.display = 'flex';
 };
@@ -276,11 +374,7 @@ window.closeBlockModal = function() {
 window.confirmBlock = async function() {
     const reason = document.getElementById('blockReason').value.trim();
     if (reason === "") {
-        tg.showPopup({
-            title: 'Ошибка',
-            message: 'Пожалуйста, укажите причину блокировки!',
-            buttons: [{ type: 'ok' }]
-        });
+        showMessage('Ошибка', 'Пожалуйста, укажите причину блокировки!');
         return;
     }
     
@@ -288,11 +382,7 @@ window.confirmBlock = async function() {
     const targetName = document.getElementById('blockUserDisplayName').value;
     
     if (!targetId || targetId === "" || targetId === "null") {
-        tg.showPopup({
-            title: 'Ошибка',
-            message: '❌ Не удалось определить пользователя для блокировки. ID отсутствует.',
-            buttons: [{ type: 'ok' }]
-        });
+        showMessage('Ошибка', '❌ Не удалось определить пользователя для блокировки.');
         closeBlockModal();
         return;
     }
@@ -310,11 +400,7 @@ window.confirmBlock = async function() {
         });
         
         if (res.status === 'success') {
-            tg.showPopup({
-                title: '✅ Заблокирован',
-                message: 'Пользователь ' + targetName + ' (ID: ' + targetId + ') заблокирован.',
-                buttons: [{ type: 'ok' }]
-            });
+            showMessage('✅ Заблокирован', 'Пользователь ' + targetName + ' заблокирован.');
             loadTickets();
             loadBlockedUsers();
         } else {
@@ -322,92 +408,78 @@ window.confirmBlock = async function() {
         }
     } catch (error) {
         console.error('Block error:', error);
-        tg.showPopup({
-            title: 'Ошибка',
-            message: 'Не удалось заблокировать пользователя: ' + error.message,
-            buttons: [{ type: 'ok' }]
-        });
+        showMessage('Ошибка', 'Не удалось заблокировать пользователя: ' + error.message);
     }
 };
 
 // ========== РАЗБЛОКИРОВКА ==========
 window.unblockUser = async function(userId, userName) {
-    if (!userId || userId === "" || userId === "?" || userId === "null" || userId === "undefined") {
-        tg.showPopup({
-            title: 'Ошибка',
-            message: '❌ Не удалось определить ID пользователя для разблокировки.',
-            buttons: [{ type: 'ok' }]
-        });
+    if (!userId || userId === "" || userId === "?" || userId === "null") {
+        showMessage('Ошибка', '❌ Не удалось определить ID пользователя.');
         return;
     }
     
-    tg.showPopup({
-        title: 'Разблокировка',
-        message: 'Разблокировать пользователя ' + userName + ' (ID: ' + userId + ')?',
-        buttons: [
-            { id: 'cancel', type: 'cancel', text: 'Отмена' },
-            { id: 'ok', type: 'default', text: 'Разблокировать' }
-        ]
-    }, async function(buttonId) {
-        if (buttonId === 'ok') {
-            try {
-                const res = await apiRequest({
-                    action: 'unblock_user',
-                    adminId: user ? user.id : 0,
-                    targetId: userId
-                });
-                
-                if (res.status === 'success') {
-                    tg.showPopup({
-                        title: '✅ Разблокирован',
-                        message: 'Пользователь ' + userName + ' успешно разблокирован.',
-                        buttons: [{ type: 'ok' }]
-                    });
-                    loadTickets();
-                    loadBlockedUsers();
-                } else {
-                    throw new Error(res.error || 'Неизвестная ошибка');
-                }
-            } catch (error) {
-                console.error('Unblock error:', error);
-                tg.showPopup({
-                    title: 'Ошибка',
-                    message: 'Не удалось разблокировать пользователя: ' + error.message,
-                    buttons: [{ type: 'ok' }]
-                });
+    if (confirm('Разблокировать пользователя ' + userName + '?')) {
+        try {
+            const res = await apiRequest({
+                action: 'unblock_user',
+                adminId: user ? user.id : 0,
+                targetId: userId
+            });
+            
+            if (res.status === 'success') {
+                showMessage('✅ Разблокирован', 'Пользователь ' + userName + ' успешно разблокирован.');
+                loadTickets();
+                loadBlockedUsers();
+            } else {
+                throw new Error(res.error || 'Неизвестная ошибка');
             }
+        } catch (error) {
+            console.error('Unblock error:', error);
+            showMessage('Ошибка', 'Не удалось разблокировать пользователя: ' + error.message);
         }
-    });
+    }
 };
 
+// ========== ЗАГРУЗКА ЗАЯВОК ПОЛЬЗОВАТЕЛЯ ==========
 async function loadUserTickets() {
     const list = document.getElementById('userTicketsList');
+    if (!list) return;
+    
+    list.innerHTML = "<p style='font-size: 13px;'>🔄 Загрузка ваших заявок...</p>";
+    
     try {
-        const res = await apiRequest({ action: "get_user_tickets", telegramId: user ? user.id : 0 });
+        const res = await apiRequest({ 
+            action: "get_user_tickets", 
+            telegramId: user ? user.id : 0 
+        });
+        
         if (!res.tickets || res.tickets.length === 0) {
             list.innerHTML = "<p style='font-size: 13px; color: var(--tg-theme-hint-color);'>📭 Активных заявок нет</p>";
             return;
         }
+        
         list.innerHTML = "";
         res.tickets.forEach(t => {
             const item = document.createElement('div');
             item.className = 'user-ticket-item';
-            let statusColor = t.status.includes('Новая') ? '#ff4d4f' : '#faad14';
+            const statusClass = t.status.includes('Новая') ? 'status-new' : (t.status.includes('В работе') ? 'status-work' : 'status-done');
             item.innerHTML = `
-                <div style="display: flex; justify-content: space-between;">
+                <div style="display: flex; justify-content: space-between; align-items: center;">
                     <span style="font-weight: 600;">№${t.id} — Каб. ${t.room}</span>
-                    <span style="color: ${statusColor}; font-size: 12px; font-weight: bold;">${t.status}</span>
+                    <span class="status-badge ${statusClass}">${t.status}</span>
                 </div>
-                <div style="font-size: 12px; margin-top: 4px; opacity: 0.8;">${t.problem}</div>
+                <div style="font-size: 13px; margin-top: 8px; opacity: 0.8;">${escapeHtml(t.problem)}</div>
             `;
             list.appendChild(item);
         });
     } catch (e) {
-        list.innerHTML = "❌ Ошибка загрузки";
-        console.error(e);
+        console.error("Load user tickets error:", e);
+        list.innerHTML = "❌ Ошибка загрузки заявок";
     }
 }
 
+// ========== ИЗМЕНЕНИЕ СТАТУСА ЗАЯВКИ ==========
 window.takeTicket = async function(row, btn) {
     btn.disabled = true;
     btn.innerText = "⏳...";
@@ -432,68 +504,96 @@ window.closeTicket = async function(row, btn) {
     }
 };
 
+// ========== ЭСКАПИРОВАНИЕ HTML ==========
+function escapeHtml(str) {
+    if (!str) return '';
+    return str.replace(/[&<>]/g, function(m) {
+        if (m === '&') return '&amp;';
+        if (m === '<') return '&lt;';
+        if (m === '>') return '&gt;';
+        return m;
+    });
+}
+
+// ========== ИНИЦИАЛИЗАЦИЯ ==========
 window.addEventListener('load', () => {
     const ticketForm = document.getElementById('ticketForm');
     const fileInput = document.getElementById('photo');
     const fileNameDisplay = document.getElementById('fileName');
-
-    if (fileInput) {
+    
+    if (fileInput && fileNameDisplay) {
         fileInput.addEventListener('change', function() {
-            if (this.files.length > 0) fileNameDisplay.innerText = "✅ " + this.files[0].name;
+            if (this.files && this.files.length > 0) {
+                fileNameDisplay.innerText = "✅ " + this.files[0].name;
+            } else {
+                fileNameDisplay.innerText = "📸 Прикрепить фото";
+            }
         });
     }
-
+    
     if (ticketForm) {
         ticketForm.addEventListener('submit', async (e) => {
             e.preventDefault();
+            
+            const room = document.getElementById('room').value.trim();
+            const problem = document.getElementById('problem').value.trim();
+            const photoFile = fileInput ? fileInput.files[0] : null;
+            
+            if (!room) {
+                showMessage('Ошибка', 'Введите номер кабинета');
+                return;
+            }
+            if (!problem) {
+                showMessage('Ошибка', 'Опишите проблему');
+                return;
+            }
+            
             const btn = document.getElementById('submitBtn');
             btn.disabled = true;
             btn.innerText = "🤖 ИИ анализирует...";
-
-            const reader = new FileReader();
-            reader.onload = async function() {
-                const base64Data = reader.result.split(',')[1];
-                try {
-                    const result = await apiRequest({
-                        action: "create_ticket",
-                        user: user?.username ? `@${user.username}` : (user?.first_name || "Аноним"),
-                        telegramId: user ? user.id : 0,
-                        room: document.getElementById('room').value,
-                        problem: document.getElementById('problem').value,
-                        photo: base64Data
-                    });
-                    
-                    if (result.status === 'success') {
-                        tg.showPopup({
-                            title: '✅ Отправлено!',
-                            message: 'Заявка создана. Администратор скоро свяжется с вами.',
-                            buttons: [{ type: 'ok' }]
-                        });
-                        setTimeout(() => tg.close(), 1500);
-                    } else if (result.error) {
-                        tg.showPopup({
-                            title: '⚠️ Ошибка',
-                            message: result.error,
-                            buttons: [{ type: 'ok' }]
-                        });
-                        btn.disabled = false;
-                        btn.innerText = "Отправить";
-                    } else {
-                        throw new Error('Ошибка сервера');
-                    }
-                } catch (error) {
-                    btn.disabled = false;
-                    btn.innerText = "❌ Ошибка отправки";
-                    tg.showPopup({
-                        title: '⚠️ Ошибка',
-                        message: 'Не удалось отправить заявку. Попробуйте позже.',
-                        buttons: [{ type: 'ok' }]
+            
+            try {
+                let photoBase64 = "";
+                if (photoFile) {
+                    photoBase64 = await new Promise((resolve) => {
+                        const reader = new FileReader();
+                        reader.onload = () => resolve(reader.result.split(',')[1]);
+                        reader.readAsDataURL(photoFile);
                     });
                 }
-            };
-            reader.readAsDataURL(fileInput.files[0]);
+                
+                const result = await apiRequest({
+                    action: "create_ticket",
+                    user: user?.username ? `@${user.username}` : (user?.first_name || "Аноним"),
+                    telegramId: user ? user.id : 0,
+                    room: room,
+                    problem: problem,
+                    photo: photoBase64
+                });
+                
+                if (result.status === 'success') {
+                    showMessage('✅ Отправлено!', 'Заявка создана. ИИ определил категорию и приоритет.');
+                    ticketForm.reset();
+                    if (fileNameDisplay) fileNameDisplay.innerText = "📸 Прикрепить фото";
+                    loadUserTickets();
+                    
+                    // Закрываем через 2 секунды (опционально)
+                    // setTimeout(() => tg.close(), 2000);
+                } else if (result.error) {
+                    showMessage('⚠️ Ошибка', result.error);
+                } else {
+                    throw new Error('Неизвестная ошибка');
+                }
+            } catch (error) {
+                console.error("Submit error:", error);
+                showMessage('❌ Ошибка', 'Не удалось отправить заявку. Попробуйте позже.');
+            } finally {
+                btn.disabled = false;
+                btn.innerText = "Отправить";
+            }
         });
     }
+    
+    // Запускаем проверку роли
+    checkRole();
 });
-
-checkRole();
