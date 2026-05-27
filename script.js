@@ -61,7 +61,7 @@ window.toggleRole = function() {
 function showView(view) {
     currentRole = view;
     
-    // Элементы экранов (убедись, что authScreen и blockedScreen есть в HTML!)
+    // Элементы экранов
     const studentView = document.getElementById('studentView');
     const adminView = document.getElementById('adminView');
     const authScreen = document.getElementById('authScreen');
@@ -81,21 +81,15 @@ function showView(view) {
     }
 }
 
-// ========== НОВАЯ ЛОГИКА: ЗАПРОС КОНТАКТА ИЗ TELEGRAM ==========
+// ========== ЗАПРОС КОНТАКТА ИЗ TELEGRAM ==========
 window.requestPhone = function() {
-    // Используем нативный метод Telegram WebApp для безопасного запроса номера
     tg.requestContact(async function(authData) {
         if (authData && authData.status === 'sent' && authData.response) {
-            // Если пользователь согласился и Telegram передал контакт
             const btn = document.getElementById('authBtn');
             if (btn) {
                 btn.disabled = true;
                 btn.innerText = "⏳ Сохранение номера...";
             }
-            
-            // Номер телефона лежит внутри зашифрованного ответа Telegram, 
-            // но мы можем вытащить его из данных или отправить запрос на бэкенд.
-            // Так как у нас простая верификация, передаем успешный статус на сервер.
             await sendPhoneToServer(authData.contact?.phone_number || "");
         } else {
             tg.showPopup({
@@ -122,7 +116,6 @@ async function sendPhoneToServer(phoneNumber) {
                 message: 'Номер телефона подтвержден. Теперь вы можете создавать заявки!',
                 buttons: [{ type: 'ok' }]
             });
-            // После успешного сохранения перезапускаем проверку роли, чтобы пустить в систему
             checkRole();
         } else {
             throw new Error(result.error || "Ошибка сохранения");
@@ -167,6 +160,7 @@ window.showAdminTab = function(tab) {
 async function loadTickets() {
     const list = document.getElementById('ticketsList');
     const stats = document.getElementById('adminStats');
+    if (!list) return;
     list.innerHTML = "<p style='text-align:center;'>🔄 Обновление...</p>";
 
     try {
@@ -180,20 +174,23 @@ async function loadTickets() {
             else if (t.aiCategory === 'Сеть') networkCount++;
         });
         
-        stats.innerHTML = `📝 Всего: <b>${allTicketsData.length}</b> | 💻 IT: <b>${itCount}</b> | 🔧 АХЧ: <b>${ahchCount}</b> | 🌐 Сеть: <b>${networkCount}</b>`;
+        if (stats) {
+            stats.innerHTML = `📝 Всего: <b>${allTicketsData.length}</b> | 💻 IT: <b>${itCount}</b> | 🔧 АХЧ: <b>${ahchCount}</b> | 🌐 Сеть: <b>${networkCount}</b>`;
+        }
         
         if (currentAdminTab === 'tickets') {
             renderTicketsByFilter();
         }
         
     } catch (e) {
-        stats.innerHTML = "❌ Ошибка связи";
+        if (stats) stats.innerHTML = "❌ Ошибка связи";
         console.error(e);
     }
 }
 
 function renderTicketsByFilter() {
     const list = document.getElementById('ticketsList');
+    if (!list) return;
     
     let filteredTickets = allTicketsData;
     if (currentFilter !== 'all') {
@@ -231,10 +228,10 @@ function renderTicketsByFilter() {
             <div style="margin: 8px 0; font-size: 15px;">${t.problem}</div>
             ${aiBlock}
             <div class="card-actions">
-                ${t.photoUrl !== "❌ Нет фото" && t.photoUrl !== "No photo" ? `<a href="${t.photoUrl}" target="_blank" class="btn-view">📸 Фото</a>` : '<span class="btn-view" style="opacity:0.5;">📷 Нет фото</span>'}
+                ${t.photoUrl !== "❌ Нет фото" && t.photoUrl !== "No photo" && t.photoUrl !== "Нет фото" ? `<a href="${t.photoUrl}" target="_blank" class="btn-view">📸 Фото</a>` : '<span class="btn-view" style="opacity:0.5;">📷 Нет фото</span>'}
                 ${isProcessing
                     ? `<button class="btn-done" onclick="closeTicket(${t.row}, this)">✅ Готово</button>`
-                    : `<button class="btn-take" onclick="takeTicket(${t.row}, this)">🔧 В работу</button>`
+                    : `<button class="btn-take" onclick="takeTicket(${t.row}, this)">🔧 В работе</button>`
                 }
                 ${hasValidUserId 
                     ? `<button class="btn-block" onclick="showBlockDialog('${safeUserId}', '${safeUserName}')">🚫 Блок</button>`
@@ -253,13 +250,14 @@ async function loadBlockedUsers() {
     
     try {
         const res = await apiRequest({ action: 'get_blocked_users', adminId: user ? user.id : 0 });
-        if (res.status !== 'success' || !res.blockedUsers || res.blockedUsers.length === 0) {
+        // ИСПРАВЛЕНО: Читаем корректное поле res.blocked, которое отправляет бэкенд
+        if (res.status !== 'success' || !res.blocked || res.blocked.length === 0) {
             list.innerHTML = "<p style='text-align:center; padding: 20px;'>🚫 Нет заблокированных пользователей</p>";
             return;
         }
         list.innerHTML = "";
         
-        res.blockedUsers.forEach(blocked => {
+        res.blocked.forEach(blocked => {
             const hasValidId = blocked.telegramId && blocked.telegramId !== "" && blocked.telegramId !== "null";
             const card = document.createElement('div');
             card.className = 'blocked-card';
@@ -273,7 +271,7 @@ async function loadBlockedUsers() {
                 <div style="margin: 8px 0; font-size: 14px; color: var(--tg-theme-text-color, #222); background: var(--tg-theme-secondary-bg-color, #f4f4f5); padding: 10px 14px; border-radius: 12px; border: 1px solid rgba(0, 0, 0, 0.08); word-break: break-word;">
                     <span style="color: #e53935; font-weight: bold;">🚫 Причина:</span> ${blocked.reason || "Не указана"}
                 </div>
-                <div style="margin: 8px 0 4px 0; font-size: 12px; color: #888;">👮 Заблокировал: ${blocked.blockedBy || "Администратор"}</div>
+                <div style="margin: 8px 0 4px 0; font-size: 12px; color: #888;">👮 Заблокировал: ${blocked.adminName || "Администратор"}</div>
                 <div class="card-actions">
                     ${hasValidId
                         ? `<button class="btn-unblock" onclick="unblockUser('${blocked.telegramId}', '${blocked.userName.replace(/'/g, "\\'")}')">🔓 Разблокировать</button>`
@@ -318,7 +316,7 @@ window.showBlockDialog = function(userId, userName) {
     document.getElementById('blockUserId').value = String(userId).trim();
     document.getElementById('blockUserDisplayName').value = userName || "Пользователь";
     const userNameSpan = document.getElementById('blockUserName');
-    userNameSpan.innerText = 'Пользователь: ' + userName + ' (ID: ' + userId + ')';
+    if (userNameSpan) userNameSpan.innerText = 'Пользователь: ' + userName + ' (ID: ' + userId + ')';
     document.getElementById('blockReason').value = '';
     document.getElementById('blockModal').style.display = 'flex';
 };
@@ -405,18 +403,20 @@ async function loadUserTickets() {
     }
 }
 
+// ИСПРАВЛЕНО: action изменен на update_ticket_status для синхронизации с бэкендом
 window.takeTicket = async function(row, btn) {
     btn.disabled = true; btn.innerText = "⏳...";
     try {
-        await apiRequest({ action: "update_status", row: row, newStatus: "🔧 В работе" });
+        await apiRequest({ action: "update_ticket_status", row: row, status: "🔧 В работе" });
         loadTickets();
     } catch (e) { btn.disabled = false; btn.innerText = "❌ Ошибка"; }
 };
 
+// ИСПРАВЛЕНО: action изменен на update_ticket_status для синхронизации с бэкендом
 window.closeTicket = async function(row, btn) {
     btn.disabled = true; btn.innerText = "⏳...";
     try {
-        await apiRequest({ action: "update_status", row: row, newStatus: "🟢 Готово" });
+        await apiRequest({ action: "update_ticket_status", row: row, status: "🟢 Готово" });
         loadTickets();
     } catch (e) { btn.disabled = false; btn.innerText = "❌ Ошибка"; }
 };
@@ -426,7 +426,7 @@ window.addEventListener('load', () => {
     const fileInput = document.getElementById('photo');
     const fileNameDisplay = document.getElementById('fileName');
 
-    if (fileInput) {
+    if (fileInput && fileNameDisplay) {
         fileInput.addEventListener('change', function() {
             if (this.files.length > 0) fileNameDisplay.innerText = "✅ " + this.files[0].name;
         });
@@ -439,36 +439,37 @@ window.addEventListener('load', () => {
             btn.disabled = true;
             btn.innerText = "🤖 ИИ анализирует...";
 
-            const reader = new FileReader();
-            reader.onload = async function() {
-                const base64Data = reader.result.split(',')[1];
-                try {
-                    const result = await apiRequest({
-                        action: "create_ticket",
-                        user: user?.username ? `@${user.username}` : (user?.first_name || "Аноним"),
-                        telegramId: user ? user.id : 0,
-                        room: document.getElementById('room').value,
-                        problem: document.getElementById('problem').value,
-                        photo: base64Data
-                    });
-                    
-                    if (result.status === 'success') {
-                        tg.showPopup({
-                            title: '✅ Отправлено!', message: 'Заявка создана. Администратор скоро свяжется с вами.', buttons: [{ type: 'ok' }]
-                        });
-                        setTimeout(() => tg.close(), 1500);
-                    } else if (result.error) {
-                        tg.showPopup({ title: '⚠️ Ошибка', message: result.error, buttons: [{ type: 'ok' }] });
-                        btn.disabled = false; btn.innerText = "Отправить";
-                    } else { throw new Error('Ошибка сервера'); }
-                } catch (error) {
-                    btn.disabled = false; btn.innerText = "❌ Ошибка отправки";
-                    tg.showPopup({ title: '⚠️ Ошибка', message: 'Не удалось отправить заявку. Попробуйте позже.', buttons: [{ type: 'ok' }] });
-                }
-            };
+            const fileInputEl = document.getElementById('photo');
             
-            if (fileInput.files.length > 0) {
-                reader.readAsDataURL(fileInput.files[0]);
+            if (fileInputEl && fileInputEl.files.length > 0) {
+                const reader = new FileReader();
+                reader.onload = async function() {
+                    const base64Data = reader.result.split(',')[1];
+                    try {
+                        const result = await apiRequest({
+                            action: "create_ticket",
+                            user: user?.username ? `@${user.username}` : (user?.first_name || "Аноним"),
+                            telegramId: user ? user.id : 0,
+                            room: document.getElementById('room').value,
+                            problem: document.getElementById('problem').value,
+                            photo: base64Data
+                        });
+                        
+                        if (result.status === 'success') {
+                            tg.showPopup({
+                                title: '✅ Отправлено!', message: 'Заявка создана. Администратор скоро свяжется с вами.', buttons: [{ type: 'ok' }]
+                            });
+                            setTimeout(() => tg.close(), 1500);
+                        } else if (result.error) {
+                            tg.showPopup({ title: '⚠️ Ошибка', message: result.error, buttons: [{ type: 'ok' }] });
+                            btn.disabled = false; btn.innerText = "Отправить";
+                        } else { throw new Error('Ошибка сервера'); }
+                    } catch (error) {
+                        btn.disabled = false; btn.innerText = "❌ Ошибка отправки";
+                        tg.showPopup({ title: '⚠️ Ошибка', message: 'Не удалось отправить заявку. Попробуйте позже.', buttons: [{ type: 'ok' }] });
+                    }
+                };
+                reader.readAsDataURL(fileInputEl.files[0]);
             } else {
                 // Если фото нет — отправляем заявку пустой строкой вместо файла
                 try {
