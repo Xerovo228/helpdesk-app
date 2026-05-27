@@ -1,13 +1,13 @@
 // ============================================
 // ИНТЕЛЛЕКТУАЛЬНЫЙ SERVICE DESK
-// Telegram Mini App + ИИ + Верификация телефона
+// Telegram Mini App + ИИ (Gemini) + Блокировка
 // ============================================
 
 let tg = window.Telegram.WebApp;
 tg.expand();
 tg.BackButton.hide();
 
-const GOOGLE_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbwlgsbK_oSvbacjl0-UJux_hYy_pmGI0zZhhxCWSMskw9NHzzfql_kG7GHHhmd9nJDKLQ/exec";
+const GOOGLE_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbyfuDe3ApFOapPDND47Yqx_zEH3whQmQj6CC7aBhLJcuOon1clcJc3p04aJzTIwtfboaA/exec";
 
 let currentRole = 'student';
 let currentFilter = 'all';
@@ -15,7 +15,6 @@ let allTicketsData = [];
 let user = tg.initDataUnsafe?.user;
 let currentAdminTab = 'tickets';
 
-// ========== ВСПОМОГАТЕЛЬНЫЕ ФУНКЦИИ ==========
 async function apiRequest(payload) {
     try {
         const response = await fetch(GOOGLE_SCRIPT_URL, {
@@ -38,98 +37,23 @@ function showMessage(title, message) {
     }
 }
 
-// ========== ЗАПРОС ТЕЛЕФОНА ЧЕРЕЗ TELEGRAM ==========
-window.requestPhone = function() {
-    tg.requestContact(async function(authData) {
-        if (authData && authData.status === 'sent' && authData.response) {
-            const btn = document.getElementById('authBtn');
-            if (btn) {
-                btn.disabled = true;
-                btn.innerText = "⏳ Сохранение номера...";
-            }
-            
-            const phoneNumber = authData.contact?.phone_number || "";
-            await sendPhoneToServer(phoneNumber);
-        } else {
-            showMessage('⚠️ Авторизация отклонена', 'Чтобы продолжить, необходимо разрешить доступ к номеру телефона.');
-        }
-    });
-};
-
-// ========== ОТПРАВКА ТЕЛЕФОНА НА СЕРВЕР ==========
-async function sendPhoneToServer(phoneNumber) {
-    try {
-        const result = await apiRequest({
-            action: "save_phone",
-            telegramId: user ? user.id : 0,
-            phone: phoneNumber
-        });
-        
-        if (result.status === 'success') {
-            showMessage('🎉 Успешно!', 'Номер телефона подтвержден. Теперь вы можете создавать заявки!');
-            checkRole(); // Перепроверяем роль после сохранения телефона
-        } else {
-            throw new Error(result.error || "Ошибка сохранения");
-        }
-    } catch (error) {
-        console.error('Save phone error:', error);
-        showMessage('❌ Ошибка сервера', 'Не удалось привязать телефон. Попробуйте еще раз.');
-        
-        const btn = document.getElementById('authBtn');
-        if (btn) {
-            btn.disabled = false;
-            btn.innerText = "📱 Предоставить номер телефона";
-        }
-    }
-}
-
-// ========== ПРОВЕРКА РОЛИ ПОЛЬЗОВАТЕЛЯ ==========
 async function checkRole() {
     try {
-        const res = await apiRequest({ 
-            action: "check_role", 
-            telegramId: user ? user.id : 0 
-        });
-        
-        console.log("checkRole response:", res);
-        
-        // Проверка на блокировку
-        if (res.role === 'blocked') {
-            showView('blocked_screen');
-            return;
-        }
-        
-        // Проверка на неподтвержденный телефон
-        if (res.role === 'unauthenticated') {
-            showView('auth_screen');
-            return;
-        }
-        
-        // Администратор
+        const res = await apiRequest({ action: "check_role", telegramId: user ? user.id : 0 });
         if (res.role === 'admin') {
             document.getElementById('roleSwitcher').style.display = 'block';
             showView('admin');
             loadBlockedUsers();
-            return;
-        }
-        
-        // Обычный студент с подтвержденным телефоном
-        if (res.role === 'student') {
+        } else {
             showView('student');
             loadUserTickets();
-            return;
         }
-        
-        // Fallback
-        showView('student');
-        
     } catch (e) {
         console.error("CheckRole error:", e);
         showView('student');
     }
 }
 
-// ========== ПЕРЕКЛЮЧЕНИЕ РОЛЕЙ (ДЛЯ ОТЛАДКИ) ==========
 window.toggleRole = function() {
     if (currentRole === 'admin') {
         showView('student');
@@ -140,33 +64,19 @@ window.toggleRole = function() {
     }
 };
 
-// ========== УПРАВЛЕНИЕ ЭКРАНАМИ ==========
 function showView(view) {
     currentRole = view;
-    
-    const studentView = document.getElementById('studentView');
-    const adminView = document.getElementById('adminView');
-    const authScreen = document.getElementById('authScreen');
-    const blockedScreen = document.getElementById('blockedScreen');
-    
-    if (studentView) studentView.style.display = view === 'student' ? 'block' : 'none';
-    if (adminView) adminView.style.display = view === 'admin' ? 'block' : 'none';
-    if (authScreen) authScreen.style.display = view === 'auth_screen' ? 'block' : 'none';
-    if (blockedScreen) blockedScreen.style.display = view === 'blocked_screen' ? 'block' : 'none';
-    
+    document.getElementById('studentView').style.display = view === 'student' ? 'block' : 'none';
+    document.getElementById('adminView').style.display = view === 'admin' ? 'block' : 'none';
     if (view === 'admin') {
         loadTickets();
         loadBlockedUsers();
     }
-    if (view === 'student') {
-        loadUserTickets();
-    }
+    if (view === 'student') loadUserTickets();
 }
 
-// ========== ВКЛАДКИ АДМИНА ==========
 window.showAdminTab = function(tab) {
     currentAdminTab = tab;
-    
     const ticketsTab = document.getElementById('ticketsTab');
     const blockedTab = document.getElementById('blockedTab');
     const ticketsBtn = document.getElementById('tabTicketsBtn');
@@ -187,7 +97,6 @@ window.showAdminTab = function(tab) {
     }
 };
 
-// ========== ЗАГРУЗКА ВСЕХ ЗАЯВОК (АДМИН) ==========
 async function loadTickets() {
     const list = document.getElementById('ticketsList');
     const stats = document.getElementById('adminStats');
@@ -199,7 +108,6 @@ async function loadTickets() {
         const res = await apiRequest({ action: "get_tickets" });
         allTicketsData = res.tickets || [];
         
-        // Подсчет статистики
         let itCount = 0, ahchCount = 0, networkCount = 0;
         allTicketsData.forEach(t => {
             if (t.aiCategory === 'IT') itCount++;
@@ -221,7 +129,6 @@ async function loadTickets() {
     }
 }
 
-// ========== ОТОБРАЖЕНИЕ ЗАЯВОК С ФИЛЬТРАЦИЕЙ ==========
 function renderTicketsByFilter() {
     const list = document.getElementById('ticketsList');
     if (!list) return;
@@ -279,7 +186,6 @@ function renderTicketsByFilter() {
     });
 }
 
-// ========== ЗАГРУЗКА ЗАБЛОКИРОВАННЫХ ПОЛЬЗОВАТЕЛЕЙ ==========
 async function loadBlockedUsers() {
     const list = document.getElementById('blockedList');
     if (!list) return;
@@ -287,10 +193,7 @@ async function loadBlockedUsers() {
     list.innerHTML = "<p style='text-align:center;'>🔄 Загрузка списка заблокированных...</p>";
     
     try {
-        const res = await apiRequest({ 
-            action: 'get_blocked_users', 
-            adminId: user ? user.id : 0 
-        });
+        const res = await apiRequest({ action: 'get_blocked_users', adminId: user ? user.id : 0 });
         
         if (res.status !== 'success' || !res.blockedUsers || res.blockedUsers.length === 0) {
             list.innerHTML = "<p style='text-align:center; padding: 20px;'>🚫 Нет заблокированных пользователей</p>";
@@ -331,7 +234,6 @@ async function loadBlockedUsers() {
     }
 }
 
-// ========== ФИЛЬТРАЦИЯ ==========
 function highlightFilter(activeFilter) {
     const buttons = ['filterAllBtn', 'filterITBtn', 'filterAHCHBtn', 'filterNetworkBtn'];
     buttons.forEach(id => {
@@ -353,7 +255,6 @@ window.filterIT = function() { currentFilter = 'IT'; renderTicketsByFilter(); hi
 window.filterAHCH = function() { currentFilter = 'АХЧ'; renderTicketsByFilter(); highlightFilter('АХЧ'); };
 window.filterNetwork = function() { currentFilter = 'Сеть'; renderTicketsByFilter(); highlightFilter('Сеть'); };
 
-// ========== БЛОКИРОВКА ПОЛЬЗОВАТЕЛЯ ==========
 window.showBlockDialog = function(userId, userName) {
     if (!userId || userId === "" || userId === "?" || userId === "null" || userId === "undefined") {
         showMessage('Ошибка', '❌ Не удалось определить ID пользователя.');
@@ -412,7 +313,6 @@ window.confirmBlock = async function() {
     }
 };
 
-// ========== РАЗБЛОКИРОВКА ==========
 window.unblockUser = async function(userId, userName) {
     if (!userId || userId === "" || userId === "?" || userId === "null") {
         showMessage('Ошибка', '❌ Не удалось определить ID пользователя.');
@@ -441,7 +341,6 @@ window.unblockUser = async function(userId, userName) {
     }
 };
 
-// ========== ЗАГРУЗКА ЗАЯВОК ПОЛЬЗОВАТЕЛЯ ==========
 async function loadUserTickets() {
     const list = document.getElementById('userTicketsList');
     if (!list) return;
@@ -449,10 +348,7 @@ async function loadUserTickets() {
     list.innerHTML = "<p style='font-size: 13px;'>🔄 Загрузка ваших заявок...</p>";
     
     try {
-        const res = await apiRequest({ 
-            action: "get_user_tickets", 
-            telegramId: user ? user.id : 0 
-        });
+        const res = await apiRequest({ action: "get_user_tickets", telegramId: user ? user.id : 0 });
         
         if (!res.tickets || res.tickets.length === 0) {
             list.innerHTML = "<p style='font-size: 13px; color: var(--tg-theme-hint-color);'>📭 Активных заявок нет</p>";
@@ -479,7 +375,6 @@ async function loadUserTickets() {
     }
 }
 
-// ========== ИЗМЕНЕНИЕ СТАТУСА ЗАЯВКИ ==========
 window.takeTicket = async function(row, btn) {
     btn.disabled = true;
     btn.innerText = "⏳...";
@@ -504,7 +399,6 @@ window.closeTicket = async function(row, btn) {
     }
 };
 
-// ========== ЭСКАПИРОВАНИЕ HTML ==========
 function escapeHtml(str) {
     if (!str) return '';
     return str.replace(/[&<>]/g, function(m) {
@@ -515,7 +409,6 @@ function escapeHtml(str) {
     });
 }
 
-// ========== ИНИЦИАЛИЗАЦИЯ ==========
 window.addEventListener('load', () => {
     const ticketForm = document.getElementById('ticketForm');
     const fileInput = document.getElementById('photo');
@@ -576,9 +469,6 @@ window.addEventListener('load', () => {
                     ticketForm.reset();
                     if (fileNameDisplay) fileNameDisplay.innerText = "📸 Прикрепить фото";
                     loadUserTickets();
-                    
-                    // Закрываем через 2 секунды (опционально)
-                    // setTimeout(() => tg.close(), 2000);
                 } else if (result.error) {
                     showMessage('⚠️ Ошибка', result.error);
                 } else {
@@ -594,6 +484,5 @@ window.addEventListener('load', () => {
         });
     }
     
-    // Запускаем проверку роли
     checkRole();
 });
