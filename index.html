@@ -239,23 +239,6 @@
             width: auto;
         }
         
-        #authScreen, #blockedScreen {
-            text-align: center;
-            padding: 40px 20px;
-        }
-        
-        #authBtn {
-            background: var(--button-color);
-            color: white;
-            border: none;
-            padding: 14px 24px;
-            border-radius: 12px;
-            font-weight: bold;
-            width: 100%;
-            font-size: 16px;
-            cursor: pointer;
-        }
-        
         #blockModal {
             display: none;
             position: fixed;
@@ -288,6 +271,12 @@
         .status-new { background: #ff4d4f; color: white; }
         .status-work { background: #faad14; color: white; }
         .status-done { background: #52c41a; color: white; }
+        
+        #statusMessage {
+            text-align: center;
+            margin-top: 10px;
+            font-weight: bold;
+        }
     </style>
 </head>
 <body>
@@ -296,28 +285,8 @@
             <button onclick="toggleRole()" class="btn-debug">🔄 Сменить роль</button>
         </div>
 
-        <!-- ЭКРАН ВЕРИФИКАЦИИ ТЕЛЕФОНА -->
-        <div id="authScreen" style="display: none;">
-            <div style="font-size: 60px; margin-bottom: 20px;">🔒</div>
-            <h2 style="margin: 0 0 12px 0;">Нужна верификация</h2>
-            <p style="font-size: 14px; opacity: 0.8; margin: 0 0 32px 0; line-height: 1.5;">
-                Чтобы отправлять заявки в HelpDesk, подтвердите свой номер телефона. Это необходимо для обратной связи технического отдела с вами.
-            </p>
-            <button id="authBtn" onclick="requestPhone()">📱 Предоставить номер телефона</button>
-        </div>
-
-        <!-- ЭКРАН БЛОКИРОВКИ -->
-        <div id="blockedScreen" style="display: none;">
-            <div style="font-size: 70px; margin-bottom: 20px;">🚫</div>
-            <h2 style="color: #e53935; margin: 0 0 12px 0;">Доступ ограничен</h2>
-            <p style="font-size: 15px; opacity: 0.8; line-height: 1.5;">
-                Ваш аккаунт был заблокирован администратором системы.<br>
-                Создание и просмотр заявок для вас полностью заблокированы.
-            </p>
-        </div>
-
         <!-- СТУДЕНТ -->
-        <div id="studentView" style="display:none;">
+        <div id="studentView">
             <div class="header">
                 <h2>Создать заявку 🛠</h2>
             </div>
@@ -379,6 +348,8 @@
                 </div>
             </div>
         </div>
+
+        <div id="statusMessage"></div>
     </div>
 
     <!-- МОДАЛЬНОЕ ОКНО БЛОКИРОВКИ -->
