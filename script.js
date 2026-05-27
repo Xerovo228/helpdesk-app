@@ -126,10 +126,8 @@ function renderTicketsByFilter() {
         card.className = 'ticket-card';
         const isProcessing = t.status === "🔧 В работе";
         
-        // Экранируем имя для передачи в функцию
         const safeUserName = (t.userName || "Пользователь").replace(/'/g, "\\'");
         const safeUserId = t.userId || "";
-        
         const hasValidUserId = safeUserId && safeUserId !== "null" && safeUserId !== "" && safeUserId !== "?";
         
         const aiBlock = `
@@ -167,7 +165,7 @@ async function loadBlockedUsers() {
     list.innerHTML = "<p style='text-align:center;'>🔄 Загрузка списка заблокированных...</p>";
     
     try {
-        const res = await apiRequest({ action: 'get_blocked_users', adminId: user.id });
+        const res = await apiRequest({ action: 'get_blocked_users', adminId: user ? user.id : 0 });
         
         if (res.status !== 'success' || !res.blockedUsers || res.blockedUsers.length === 0) {
             list.innerHTML = "<p style='text-align:center; padding: 20px;'>🚫 Нет заблокированных пользователей</p>";
@@ -249,7 +247,6 @@ window.filterNetwork = function() {
 
 // ========== БЛОКИРОВКА: РАБОТА С МОДАЛЬНЫМ ОКНОМ ==========
 window.showBlockDialog = function(userId, userName) {
-    // Проверка валидности ID
     if (!userId || userId === "" || userId === "?" || userId === "null" || userId === "undefined") {
         tg.showPopup({
             title: 'Ошибка',
@@ -259,24 +256,18 @@ window.showBlockDialog = function(userId, userName) {
         return;
     }
     
-    // Сохраняем данные в скрытые поля модального окна
     document.getElementById('blockUserId').value = String(userId).trim();
     document.getElementById('blockUserDisplayName').value = userName || "Пользователь";
     
-    // Отображаем информацию в модалке
     const userNameSpan = document.getElementById('blockUserName');
     userNameSpan.innerText = 'Пользователь: ' + userName + ' (ID: ' + userId + ')';
     
-    // Очищаем поле причины
     document.getElementById('blockReason').value = '';
-    
-    // Показываем модальное окно
     document.getElementById('blockModal').style.display = 'flex';
 };
 
 window.closeBlockModal = function() {
     document.getElementById('blockModal').style.display = 'none';
-    // НЕ ОБНУЛЯЕМ скрытые поля — они сохраняются для отправки
 };
 
 window.confirmBlock = async function() {
@@ -290,7 +281,6 @@ window.confirmBlock = async function() {
         return;
     }
     
-    // Берём данные из скрытых полей (они сохраняются даже после закрытия модалки)
     const targetId = document.getElementById('blockUserId').value;
     const targetName = document.getElementById('blockUserDisplayName').value;
     
@@ -304,13 +294,12 @@ window.confirmBlock = async function() {
         return;
     }
     
-    // Закрываем модалку
     closeBlockModal();
     
     try {
         const res = await apiRequest({
             action: 'block_user',
-            adminId: user.id,
+            adminId: user ? user.id : 0,
             targetId: targetId,
             userName: targetName,
             reason: reason,
@@ -320,9 +309,10 @@ window.confirmBlock = async function() {
         if (res.status === 'success') {
             tg.showPopup({
                 title: '✅ Заблокирован',
-                message: 'Пользователь ' + targetName + ' (ID: ' + targetId + ') заблокирован.\nПричина: ' + reason,
+                message: 'Пользователь ' + targetName + ' (ID: ' + targetId + ') заблокирован.',
                 buttons: [{ type: 'ok' }]
             });
+            // Мгновенно перезагружаем все списки, чтобы убрать карточки или обновить состояние
             loadTickets();
             loadBlockedUsers();
         } else {
@@ -338,7 +328,7 @@ window.confirmBlock = async function() {
     }
 };
 
-// ========== РАЗБЛОКИРОВКА ==========
+// ========== ИСПРАВЛЕННАЯ РАЗБЛОКИРОВКА (С КОРРЕКТНЫМИ СВОЙСТВАМИ TG POPUP) ==========
 window.unblockUser = async function(userId, userName) {
     if (!userId || userId === "" || userId === "?" || userId === "null" || userId === "undefined") {
         tg.showPopup({
@@ -353,24 +343,26 @@ window.unblockUser = async function(userId, userName) {
         title: 'Разблокировка',
         message: 'Разблокировать пользователя ' + userName + ' (ID: ' + userId + ')?',
         buttons: [
-            { type: 'cancel', text: 'Отмена' },
-            { type: 'default', text: 'Разблокировать' }
+            { id: 'cancel', type: 'cancel', text: 'Отмена' },
+            { id: 'ok', type: 'default', text: 'Разблокировать' }
         ]
-    }, async function(buttonIndex) {
-        if (buttonIndex === 1) {
+    }, async function(buttonId) {
+        // Проверяем текстовый ID нажатой кнопки, а не числовой индекс!
+        if (buttonId === 'ok') {
             try {
                 const res = await apiRequest({
                     action: 'unblock_user',
-                    adminId: user.id,
+                    adminId: user ? user.id : 0,
                     targetId: userId
                 });
                 
                 if (res.status === 'success') {
                     tg.showPopup({
                         title: '✅ Разблокирован',
-                        message: 'Пользователь ' + userName + ' разблокирован.',
+                        message: 'Пользователь ' + userName + ' успешно разблокирован.',
                         buttons: [{ type: 'ok' }]
                     });
+                    // Мгновенно обновляем интерфейс, чтобы юзер исчез из списков заблокированных
                     loadTickets();
                     loadBlockedUsers();
                 } else {
