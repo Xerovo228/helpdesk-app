@@ -158,7 +158,7 @@ function renderTicketsByFilter() {
     });
 }
 
-// ========== ОБНОВЛЕННАЯ ФУНКЦИЯ ЗАГРУЗКИ С ИСПРАВЛЕНИЕМ ЦВЕТА ПРИЧИНЫ ==========
+// ========== ОБНОВЛЕННАЯ ФУНКЦИЯ: ТЕПЕРЬ БЕЗ СТРЁМНОГО РОЗОВОГО ФОНА ==========
 async function loadBlockedUsers() {
     const list = document.getElementById('blockedList');
     if (!list) return;
@@ -185,13 +185,13 @@ async function loadBlockedUsers() {
             }
             card.innerHTML = `
                 <div><b>👤 ${blocked.userName || "Неизвестный"}</b> | 🆔 ${blocked.telegramId || "?"}</div>
-                <div style="margin: 8px 0; font-size: 13px; color: #666;">📅 Заблокирован: ${formattedDate}</div>
+                <div style="margin: 4px 0 8px 0; font-size: 13px; color: #888;">📅 Заблокирован: ${formattedDate}</div>
                 
-                <div style="margin: 8px 0; font-size: 14px; color: var(--tg-theme-text-color, #222); background: var(--tg-theme-secondary-bg-color, #f5f5f5); padding: 8px 12px; border-radius: 10px; border: 1px solid rgba(0,0,0,0.05); word-break: break-word;">
-                    <span style="color: #ff4d4f; font-weight: bold;">🚫 Причина:</span> ${blocked.reason || "Не указана"}
+                <div style="margin: 8px 0; font-size: 14px; color: var(--tg-theme-text-color, #222); background: var(--tg-theme-secondary-bg-color, #f4f4f5); padding: 10px 14px; border-radius: 12px; border: 1px solid rgba(0, 0, 0, 0.08); word-break: break-word;">
+                    <span style="color: #e53935; font-weight: bold;">🚫 Причина:</span> ${blocked.reason || "Не указана"}
                 </div>
                 
-                <div style="margin: 8px 0; font-size: 12px; color: #666;">👮 Заблокировал: ${blocked.blockedBy || "Администратор"}</div>
+                <div style="margin: 8px 0 4px 0; font-size: 12px; color: #888;">👮 Заблокировал: ${blocked.blockedBy || "Администратор"}</div>
                 <div class="card-actions">
                     ${hasValidId
                         ? `<button class="btn-unblock" onclick="unblockUser('${blocked.telegramId}', '${blocked.userName.replace(/'/g, "\\'")}')">🔓 Разблокировать</button>`
