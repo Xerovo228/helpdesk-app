@@ -6,7 +6,7 @@
 let tg = window.Telegram.WebApp;
 tg.expand();
 
-const GOOGLE_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbw8YlZZngTQ1yRVVJu2asDu-KxHYJTZnYJJ6eIq6_BXST77xk7eY7Ey66UQntqXSiT7Gg/exec";
+const GOOGLE_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbzo6I06gWTteZ7YlQ_r6e6RSV_yQCQcx0D_elfiQpwklvBlYHQHK8adIKHwaNGwaVT5RQ/exec";
 
 let currentRole = 'student';
 let currentFilter = 'all';
