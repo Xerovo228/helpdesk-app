@@ -13,27 +13,7 @@
             <button onclick="toggleRole()" class="btn-debug">Сменить роль</button>
         </div>
 
-        <div id="authScreen" style="display: none; text-align: center; padding: 40px 20px;">
-            <div style="font-size: 60px; margin-bottom: 20px;">🔒</div>
-            <h2 style="margin: 0 0 12px 0; color: var(--tg-theme-text-color, #222);">Нужна верификация</h2>
-            <p style="font-size: 14px; opacity: 0.8; margin: 0 0 32px 0; line-height: 1.5; color: var(--tg-theme-text-color, #222);">
-                Чтобы отправлять заявки в HelpDesk, подтвердите свой номер телефона. Это необходимо для обратной связи технического отдела с вами.
-            </p>
-            <button id="authBtn" onclick="requestPhone()" style="background: #248bcf; color: white; border: none; padding: 14px 24px; border-radius: 12px; font-weight: bold; width: 100%; font-size: 16px; cursor: pointer; transition: background 0.2s ease;">
-                📱 Предоставить номер телефона
-            </button>
-        </div>
-
-        <div id="blockedScreen" style="display: none; text-align: center; padding: 50px 20px;">
-            <div style="font-size: 70px; margin-bottom: 20px;">🚫</div>
-            <h2 style="color: #e53935; margin: 0 0 12px 0;">Доступ ограничен</h2>
-            <p style="font-size: 15px; opacity: 0.8; line-height: 1.5; margin: 0; color: var(--tg-theme-text-color, #222);">
-                Ваш аккаунт был заблокирован администратором системы.<br>
-                Создание и просмотр заявок для вас полностью заблокированы.
-            </p>
-        </div>
-
-        <div id="studentView" style="display:none;">
+        <div id="studentView">
             <div class="header">
                 <h2>Создать заявку 🛠</h2>
             </div>
@@ -98,18 +78,20 @@
         <div id="statusMessage" style="text-align: center; margin-top: 10px; font-weight: bold;"></div>
     </div>
 
+    <!-- Модальное окно с скрытыми полями -->
     <div id="blockModal" style="display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.5); z-index: 1000; align-items: center; justify-content: center;">
         <div style="background: var(--tg-theme-bg-color, white); border-radius: 20px; padding: 20px; width: 80%; max-width: 300px;">
             <h3 style="margin: 0 0 10px 0; color: var(--tg-theme-text-color, #222);">🚫 Блокировка</h3>
             <p id="blockUserName" style="font-size: 14px; color: gray; margin: 5px 0;"></p>
             <textarea id="blockReason" rows="3" placeholder="Введите причину блокировки..." style="width: 100%; padding: 10px; border-radius: 12px; border: 1px solid #ccc; margin: 10px 0; box-sizing: border-box; font-family: inherit; font-size: 14px;"></textarea>
             
+            <!-- Скрытые поля для хранения данных -->
             <input type="hidden" id="blockUserId" value="">
             <input type="hidden" id="blockUserDisplayName" value="">
             
             <div style="display: flex; gap: 10px;">
-                <button onclick="closeBlockModal()" style="flex: 1; background: gray; color: white; border: none; border-radius: 25px; padding: 10px; cursor: pointer;">Отмена</button>
-                <button onclick="confirmBlock()" style="flex: 1; background: #dc3545; color: white; border: none; border-radius: 25px; padding: 10px; cursor: pointer;">Заблокировать</button>
+                <button onclick="closeBlockModal()" style="flex: 1; background: gray; color: white; border: none; border-radius: 25px; padding: 10px;">Отмена</button>
+                <button onclick="confirmBlock()" style="flex: 1; background: #dc3545; color: white; border: none; border-radius: 25px; padding: 10px;">Заблокировать</button>
             </div>
         </div>
     </div>
