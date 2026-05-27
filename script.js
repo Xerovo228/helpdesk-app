@@ -9,7 +9,7 @@ tg.expand();
 // Автоматически включаем кнопку "Назад", если она понадобится
 tg.BackButton.hide();
 
-const GOOGLE_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbxi_uEQIIy6C_yCU222Z_9J7zR8YP-arOCsMZAT_29n8tSPGsoRoHsgoSD2845mOOu4GA/exec";
+const GOOGLE_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbxPQ7vWcvAjk6e2DbSPkzxbLIWVsNMU4tOuoLTZZ9RR37VphWTMSU-NgKaP7pRcXQTozw/exec";
 
 let currentRole = 'student';
 let currentFilter = 'all';
